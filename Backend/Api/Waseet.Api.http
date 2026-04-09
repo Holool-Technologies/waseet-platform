@@ -1,6 +1,0 @@
-@Waseet.Api_HostAddress = http://localhost:5294
-
-GET {{Waseet.Api_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
