@@ -1,10 +1,11 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Domain.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Domain.Entities;
+using System.Reflection.Emit;
 using Domain.Enums;
 
-namespace Infrastructure.Persistence;
+namespace Waseet.Infrastructure.Persistence;
 
 public class WaseetDbContext : DbContext
 {

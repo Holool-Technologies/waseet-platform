@@ -1,11 +1,11 @@
 import {
-  SharedResizeObserver
-} from "./chunk-YCCGRP2J.js";
-import {
   MAT_RIPPLE_GLOBAL_OPTIONS,
   MatRipple,
   _StructuralStylesLoader
 } from "./chunk-37XDGQRT.js";
+import {
+  SharedResizeObserver
+} from "./chunk-YCCGRP2J.js";
 import {
   RtlScrollAxisType,
   getRtlScrollAxisType,
