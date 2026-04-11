@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Reflection.Emit;
 using Domain.Enums;
 
-namespace Waseet.Infrastructure.Persistence;
+namespace Infrastructure.Persistence;
 
 public class WaseetDbContext : DbContext
 {
@@ -18,7 +18,7 @@ public class WaseetDbContext : DbContext
     public DbSet<Proposal> Proposals => Set<Proposal>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<EscrowTransaction> EscrowTransactions => Set<EscrowTransaction>();
-
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
