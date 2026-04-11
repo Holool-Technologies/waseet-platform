@@ -1,7 +1,7 @@
 using Api.Endpoints;
 using Application;
 using Infrastructure;
-using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplicationServices();
