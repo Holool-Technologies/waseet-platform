@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Waseet.Infrastructure.Persistence;
 
-namespace Waseet.Infrastructure;
+namespace Infrastructure;
 
 public static class DependencyInjection
 {

@@ -3,8 +3,8 @@ using Application;
 
 var builder = WebApplication.CreateBuilder(args);
 
-//builder.Services.AddApplicationServices();      // wired in Phase 2
-//builder.Services.AddInfrastructureServices(builder.Configuration); // wired in Phase 2
+builder.Services.AddApplicationServices();      // wired in Phase 2
+builder.Services.AddInfrastructureServices(builder.Configuration); // wired in Phase 2
 
 builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();

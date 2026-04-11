@@ -11,5 +11,5 @@ public class Proposal
     public ProposalStatus Status { get; set; } = ProposalStatus.Pending;
     public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
 
-    public WaseetTask Task { get; set; } = null!;
+    public Task Task { get; set; } = null!;
 }

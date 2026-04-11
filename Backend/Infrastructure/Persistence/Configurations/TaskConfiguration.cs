@@ -1,14 +1,13 @@
 ﻿using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Domain.Enums;
 using TaskStatus = Domain.Enums.TaskStatus;
 
 namespace Waseet.Infrastructure.Persistence.Configurations;
 
-public class WaseetTaskConfiguration : IEntityTypeConfiguration<WaseetTask>
+public class TaskConfiguration : IEntityTypeConfiguration<global::Domain.Entities.Task>
 {
-    public void Configure(EntityTypeBuilder<WaseetTask> builder)
+    public void Configure(EntityTypeBuilder<global::Domain.Entities.Task> builder)
     {
         builder.HasKey(t => t.TaskId);
 

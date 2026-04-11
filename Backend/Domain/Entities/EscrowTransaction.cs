@@ -11,5 +11,5 @@ public class EscrowTransaction
     public DateTime? ReleasedAt { get; set; }
     public Guid? ReleasedToUserId { get; set; }
 
-    public WaseetTask Task { get; set; } = null!;
+    public Task Task { get; set; } = null!;
 }

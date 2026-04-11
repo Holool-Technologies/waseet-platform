@@ -1,4 +1,5 @@
 ﻿using Domain.Entities;
+using Task=Domain.Entities.Task;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +14,7 @@ public class WaseetDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<KycRecord> KycRecords => Set<KycRecord>();
-    public DbSet<WaseetTask> Tasks => Set<WaseetTask>();
+    public DbSet<Task> Tasks => Set<Task>();
     public DbSet<Proposal> Proposals => Set<Proposal>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<EscrowTransaction> EscrowTransactions => Set<EscrowTransaction>();

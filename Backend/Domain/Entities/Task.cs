@@ -2,7 +2,7 @@
 using TaskStatus = Domain.Enums.TaskStatus;
 namespace Domain.Entities;
 
-public class WaseetTask
+public class Task
 {
     public Guid TaskId { get; set; } = Guid.NewGuid();
     public string PublicTaskCode { get; set; } = string.Empty; // e.g. WST-A7X2K
