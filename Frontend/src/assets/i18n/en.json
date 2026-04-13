@@ -1,0 +1,20 @@
+{
+  "app": { "name": "Waseet", "tagline": "Work without revealing yourself" },
+  "nav": { "browse": "Browse Tasks", "post": "Post a Task", "dashboard": "Dashboard", "login": "Login", "register": "Register", "logout": "Logout" },
+  "auth": {
+    "login": "Login", "register": "Register", "email": "Email", "password": "Password",
+    "confirmPassword": "Confirm Password", "asClient": "I'm a Client", "asFreelancer": "I'm a Freelancer",
+    "noAccount": "Don't have an account?", "hasAccount": "Already have an account?",
+    "kycRequired": "Identity verification required before posting tasks."
+  },
+  "task": {
+    "title": "Task Title", "description": "Description", "budget": "Budget (USD)",
+    "post": "Post Task", "browse": "Browse Tasks", "myTasks": "My Tasks",
+    "status": { "open": "Open", "bidding": "Bidding", "active": "Active", "completed": "Completed", "disputed": "Disputed" },
+    "noTasks": "No tasks found.", "submitProposal": "Submit Proposal"
+  },
+  "proposal": { "coverLetter": "Cover Letter", "bidAmount": "Your Bid (USD)", "submit": "Submit Proposal" },
+  "chat": { "typeMessage": "Type a message...", "send": "Send", "aiNote": "Messages are AI-sanitized to protect anonymity." },
+  "escrow": { "status": "Escrow Status", "held": "Held", "released": "Released", "disputed": "Disputed", "release": "Release Payment", "dispute": "Raise Dispute" },
+  "kyc": { "title": "Identity Verification", "fullName": "Full Name", "uploadDoc": "Upload Document", "submit": "Submit for Verification", "pending": "Verification Pending", "approved": "Verified", "rejected": "Verification Failed" }
+}
