@@ -6,6 +6,9 @@ export class LangService {
   isArabic = signal<boolean>(false);
 
   constructor(private translate: TranslateService) {
+    // Set default language
+    this.translate.setDefaultLang('en');
+
     const saved = localStorage.getItem('waseet-lang') || 'en';
     this.setLang(saved);
   }

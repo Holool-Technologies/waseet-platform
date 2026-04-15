@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { NavbarComponent } from './shared/navbar/navbar.component';
 import { LangService } from './core/services/lang.service';
@@ -15,7 +15,6 @@ import { TranslateModule } from '@ngx-translate/core';
     </main>
   `
 })
-export class AppComponent implements OnInit {
+export class AppComponent {
   private lang = inject(LangService);
-  ngOnInit() { this.lang.setLang(localStorage.getItem('waseet-lang') || 'en'); }
 }
