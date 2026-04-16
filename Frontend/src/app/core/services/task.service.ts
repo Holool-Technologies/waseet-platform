@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { map } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { CreateTaskRequest, CreateProposalRequest, WaseetTask, Proposal } from '../models/task.models';
+import { CreateTaskRequest, CreateProposalRequest, PagedResult, WaseetTask, Proposal } from '../models/task.models';
 
 @Injectable({ providedIn: 'root' })
 export class TaskService {
@@ -10,7 +11,9 @@ export class TaskService {
   constructor(private http: HttpClient) {}
 
   browse(page = 1, pageSize = 10) {
-    return this.http.get<WaseetTask[]>(`${this.base}?page=${page}&pageSize=${pageSize}`);
+    return this.http
+      .get<PagedResult<WaseetTask>>(`${this.base}?page=${page}&pageSize=${pageSize}`)
+      .pipe(map(result => result.items));
   }
 
   getByCode(code: string) {

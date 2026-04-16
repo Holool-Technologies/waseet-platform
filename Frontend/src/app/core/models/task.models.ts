@@ -16,6 +16,14 @@ export interface CreateTaskRequest {
   budgetUSD: number;
 }
 
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export interface Proposal {
   proposalId: string;
   taskId: string;
