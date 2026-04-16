@@ -1,4 +1,5 @@
 ﻿using Application.Features.Auth.Interfaces;
+using Domain.Interfaces;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Application.Features.Kyc.Interfaces;
 using Waseet.Application.Features.Tasks.Interfaces;
 
 
@@ -28,6 +30,9 @@ public static class DependencyInjection
             configuration.GetSection("JwtSettings"));
 
         services.AddScoped<IAuthService, AuthService>();
+	    services.AddScoped<IKycService, KycService>();
+	    services.AddSingleton<EncryptionService>();
+	    services.AddSingleton<IFileStorageService, LocalFileStorageService>();
         services.AddScoped<TaskCodeGenerator>();
         services.AddScoped<ITaskService, TaskService>();
 
@@ -68,6 +73,7 @@ public static class DependencyInjection
                     return Task.CompletedTask;
                 }
             };
+	   options.MapInboundClaims = false;
         });
 
         services.AddAuthorization();
