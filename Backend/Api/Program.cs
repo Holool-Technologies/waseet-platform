@@ -52,6 +52,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapAuthEndpoints();
+app.MapKycEndpoints();
 // app.MapHub<ChatHub>("/hubs/chat"); — Phase 4
 
+app.UseStaticFiles();
 app.Run();

@@ -27,6 +27,9 @@ public static class DependencyInjection
             configuration.GetSection("JwtSettings"));
 
         services.AddScoped<IAuthService, AuthService>();
+	services.AddScoped<IKycService, KycService>();
+	services.AddSingleton<EncryptionService>();
+	services.AddSingleton<IFileStorageService, LocalFileStorageService>();
 
         var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
         var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
@@ -65,6 +68,7 @@ public static class DependencyInjection
                     return Task.CompletedTask;
                 }
             };
+	   options.MapInboundClaims = false;
         });
 
         services.AddAuthorization();
