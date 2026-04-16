@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Waseet.Application.Features.Tasks.Interfaces;
 
 
 namespace Infrastructure;
@@ -27,6 +28,8 @@ public static class DependencyInjection
             configuration.GetSection("JwtSettings"));
 
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<TaskCodeGenerator>();
+        services.AddScoped<ITaskService, TaskService>();
 
         var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
         var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);

@@ -2,6 +2,7 @@ using Api.Endpoints;
 using Application;
 using Infrastructure;
 using Microsoft.OpenApi.Models;
+using Waseet.Api.Middleware;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplicationServices();
@@ -30,16 +31,31 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+var allowedOrigins = builder.Configuration
+    .GetSection("AllowedOrigins")
+    .Get<string[]>() ?? [];
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("WaseetCors", policy =>
-        policy.WithOrigins("http://localhost:4200")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials());
 });
 
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy("WaseetCors", policy =>
+//        policy.WithOrigins("http://localhost:4200")
+//              .AllowAnyHeader()
+//              .AllowAnyMethod()
+//              .AllowCredentials());
+//});
+
 var app = builder.Build();
+
+app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseCors("WaseetCors");
 app.UseAuthentication();
@@ -52,6 +68,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapAuthEndpoints();
+app.MapTaskEndpoints();
+app.MapEscrowEndpoints();
+
 // app.MapHub<ChatHub>("/hubs/chat"); — Phase 4
 
 app.Run();
