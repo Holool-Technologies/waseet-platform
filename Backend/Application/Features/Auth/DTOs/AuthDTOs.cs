@@ -22,3 +22,7 @@ public record AuthResponse(
     Guid UserId,
     int Role
 );
+public record ForgotPasswordRequest(string Email);
+public record ResetPasswordRequest(string Token, string NewPassword);
+public record GoogleLoginRequest(string IdToken);
+public record ErrorDetail(string Code, string Message);

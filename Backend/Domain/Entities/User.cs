@@ -14,4 +14,7 @@ public class User
     public KycRecord? KycRecord { get; set; }
 
     public ICollection<RefreshToken> RefreshTokens { get; set; } = [];
+
+    public string? GoogleId { get; set; }
+    public ICollection<PasswordResetToken> PasswordResetTokens { get; set; } = [];
 }
