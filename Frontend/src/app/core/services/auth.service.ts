@@ -42,6 +42,19 @@ export class AuthService {
       .pipe(tap(res => this.saveTokens(res)));
   }
 
+  googleLogin(idToken: string) {
+    return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/google`, { idToken })
+      .pipe(tap(res => this.saveTokens(res)));
+  }
+
+  forgotPassword(email: string) {
+    return this.http.post(`${environment.apiUrl}/auth/forgot-password`, { email });
+  }
+
+  resetPassword(token: string, newPassword: string) {
+    return this.http.post(`${environment.apiUrl}/auth/reset-password`, { token, newPassword });
+  }
+
   refresh() {
     return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/refresh`, {
       refreshToken: this._refreshToken()

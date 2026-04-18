@@ -54,20 +54,33 @@ import { WaseetTask, Proposal, EscrowTransaction } from '../../../../core/models
             </div>
           }
 
-          <!-- Proposals (client only) -->
-          @if (auth.isClient() && proposals().length > 0) {
+          <!-- Show proposals to both client (full) and freelancer (anonymized competing bids) -->
+          @if (proposals().length > 0) {
             <div class="card p-6">
-              <h2 class="font-semibold text-gray-900 dark:text-white mb-4">Proposals ({{ proposals().length }})</h2>
-              <div class="space-y-4">
-                @for (p of proposals(); track p.proposalId) {
+              <h2 class="font-semibold text-gray-900 dark:text-white mb-4">
+                @if (auth.isClient()) { Proposals ({{ proposals().length }}) }
+                @else { Competing Bids — {{ proposals().length }} freelancer(s) have bid on this task }
+              </h2>
+              <div class="space-y-3">
+                @for (p of proposals(); track p.proposalId || p.bidAmount) {
                   <div class="border border-gray-100 dark:border-gray-700 rounded-xl p-4">
                     <div class="flex items-center justify-between mb-2">
                       <span class="font-bold text-primary-500">\${{ p.bidAmount }}</span>
-                      @if (task()!.status === 0) {
-                        <button (click)="award(p.proposalId)" class="btn-primary text-xs px-3 py-1.5">Award</button>
-                      }
+                      <div class="flex items-center gap-3">
+                        <span class="text-xs text-gray-400">{{ p.submittedAt | date:'d MMM' }}</span>
+                        @if (auth.isClient() && task()!.status === 0 || task()!.status === 1) {
+                          <button (click)="award(p.proposalId)" class="btn-primary text-xs px-3 py-1.5">
+                            Award
+                          </button>
+                        }
+                      </div>
                     </div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ p.coverLetter }}</p>
+                    @if (auth.isClient() && p.coverLetter) {
+                      <p class="text-sm text-gray-600 dark:text-gray-400">{{ p.coverLetter }}</p>
+                    }
+                    @if (auth.isFreelancer()) {
+                      <p class="text-xs text-gray-400 italic">Bid details hidden to protect anonymity</p>
+                    }
                   </div>
                 }
               </div>
@@ -148,5 +161,5 @@ export class TaskDetailComponent implements OnInit {
     if (this.escrow()) this.escrowService.dispute(this.escrow()!.escrowId).subscribe();
   }
 
-  statusLabel(s: number) { return ['Open','Bidding','Active','Completed','Disputed'][s] ?? 'Open'; }
+  statusLabel(s: number) { return ['Open', 'Bidding', 'Active', 'Completed', 'Disputed'][s] ?? 'Open'; }
 }

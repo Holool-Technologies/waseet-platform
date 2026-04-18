@@ -5,7 +5,8 @@
     "login": "Login", "register": "Register", "email": "Email", "password": "Password",
     "confirmPassword": "Confirm Password", "asClient": "I'm a Client", "asFreelancer": "I'm a Freelancer",
     "noAccount": "Don't have an account?", "hasAccount": "Already have an account?",
-    "kycRequired": "Identity verification required before posting tasks."
+    "kycRequired": "Identity verification required before posting tasks.",
+    "forgotPassword": "Forgot Password?","resetPassword": "Reset Password","continueWithGoogle": "Continue with Google"
   },
   "task": {
     "title": "Task Title", "description": "Description", "budget": "Budget (USD)",

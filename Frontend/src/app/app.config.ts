@@ -6,6 +6,8 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { SocialLoginModule, SocialAuthServiceConfig, GoogleLoginProvider } from '@abacritt/angularx-social-login';
+import { environment } from '../environments/environment';
 
 class CustomTranslateLoader extends TranslateLoader {
   constructor(private http: HttpClient) {
@@ -33,7 +35,19 @@ export const appConfig: ApplicationConfig = {
           useFactory: createTranslateLoader,
           deps: [HttpClient]
         }
-      })
-    )
+      }),
+      SocialLoginModule
+    ),
+    {
+      provide: 'SocialAuthServiceConfig',
+      useValue: {
+        autoLogin: false,
+        providers: [{
+          id: GoogleLoginProvider.PROVIDER_ID,
+          provider: new GoogleLoginProvider(environment.googleClientId)
+        }],
+        onError: (err: any) => console.error(err)
+      } as SocialAuthServiceConfig
+    }
   ]
 };

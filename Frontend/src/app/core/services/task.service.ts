@@ -1,8 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { map } from 'rxjs';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { CreateTaskRequest, CreateProposalRequest, PagedResult, WaseetTask, Proposal } from '../models/task.models';
+import { CreateTaskRequest, CreateProposalRequest, WaseetTask, Proposal } from '../models/task.models';
 
 @Injectable({ providedIn: 'root' })
 export class TaskService {
@@ -10,10 +9,28 @@ export class TaskService {
 
   constructor(private http: HttpClient) {}
 
-  browse(page = 1, pageSize = 10) {
-    return this.http
-      .get<PagedResult<WaseetTask>>(`${this.base}?page=${page}&pageSize=${pageSize}`)
-      .pipe(map(result => result.items));
+  browse(
+    page = 1,
+    pageSize = 12,
+    search?: string,
+    minBudget?: number,
+    maxBudget?: number,
+    status?: number,
+    category?: number,
+    sortBy = 'newest'
+  ) {
+    let params = new HttpParams()
+      .set('page', page)
+      .set('pageSize', pageSize)
+      .set('sortBy', sortBy);
+
+    if (search)     params = params.set('search', search);
+    if (minBudget)  params = params.set('minBudget', minBudget);
+    if (maxBudget)  params = params.set('maxBudget', maxBudget);
+    if (status !== undefined) params = params.set('status', status);
+    if (category !== undefined) params = params.set('category', category);
+
+    return this.http.get<any>(`${this.base}`, { params });
   }
 
   getByCode(code: string) {
@@ -28,12 +45,13 @@ export class TaskService {
     return this.http.post<WaseetTask>(this.base, req);
   }
 
-  submitProposal(taskCode: string, req: CreateProposalRequest) {
-    return this.http.post<Proposal>(`${this.base}/${taskCode}/proposals`, req);
-  }
-
+  // REQ 7: proposals now returned for both client (full) and freelancer (anonymized)
   getProposals(taskCode: string) {
     return this.http.get<Proposal[]>(`${this.base}/${taskCode}/proposals`);
+  }
+
+  submitProposal(taskCode: string, req: CreateProposalRequest) {
+    return this.http.post<Proposal>(`${this.base}/${taskCode}/proposals`, req);
   }
 
   awardProposal(taskCode: string, proposalId: string) {

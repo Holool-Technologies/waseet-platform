@@ -5,7 +5,8 @@
     "login": "تسجيل الدخول", "register": "إنشاء حساب", "email": "البريد الإلكتروني", "password": "كلمة المرور",
     "confirmPassword": "تأكيد كلمة المرور", "asClient": "أنا عميل", "asFreelancer": "أنا مستقل",
     "noAccount": "ليس لديك حساب؟", "hasAccount": "لديك حساب بالفعل؟",
-    "kycRequired": "يجب التحقق من الهوية قبل نشر المهام."
+    "kycRequired": "يجب التحقق من الهوية قبل نشر المهام.",
+    "forgotPassword": "نسيت كلمة المرور؟","resetPassword": "إعادة تعيين كلمة المرور","continueWithGoogle": "المتابعة عبر جوجل"
   },
   "task": {
     "title": "عنوان المهمة", "description": "الوصف", "budget": "الميزانية (دولار)",

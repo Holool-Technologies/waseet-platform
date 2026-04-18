@@ -13,9 +13,10 @@ import { CommonModule } from '@angular/common';
   template: `
     <nav class="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-16">
-
-          <a routerLink="/" class="flex items-center gap-2">
+        <!-- <div class="flex items-center justify-between h-16"> -->
+        <div class="flex items-center justify-between h-auto min-h-[4rem] flex-wrap gap-2 py-2">
+          
+        <a routerLink="/" class="flex items-center gap-2">
             <div class="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
               <span class="text-white font-bold text-sm">و</span>
             </div>
@@ -29,18 +30,12 @@ import { CommonModule } from '@angular/common';
                class="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary-500 transition-colors">
               {{ 'nav.browse' | translate }}
             </a>
-            @if (auth.isLoggedIn()) {
-              <a routerLink="/dashboard" routerLinkActive="text-primary-500"
-                 class="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary-500 transition-colors">
-                {{ 'nav.dashboard' | translate }}
-              </a>
-              @if (auth.isClient()) {
-                <a routerLink="/post-task"
-                   class="btn-primary text-sm">
-                  {{ 'nav.post' | translate }}
-                </a>
-              }
-            }
+          @if (auth.isLoggedIn() && auth.isClient()) {
+            <a routerLink="/post-task"
+              class="btn-primary text-sm flex-shrink-0 whitespace-nowrap">
+              + Post Task
+            </a>
+          }
           </div>
 
           <div class="flex items-center gap-3">

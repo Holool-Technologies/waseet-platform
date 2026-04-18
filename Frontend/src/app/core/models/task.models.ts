@@ -7,30 +7,29 @@ export interface WaseetTask {
   description: string;
   budgetUSD: number;
   status: number;
+  statusLabel: string;
+  category: number;
+  categoryLabel: string;      // REQ 2
+  proposalCount: number;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateTaskRequest {
   title: string;
   description: string;
   budgetUSD: number;
-}
-
-export interface PagedResult<T> {
-  items: T[];
-  totalCount: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
+  category: number;           // REQ 2
 }
 
 export interface Proposal {
   proposalId: string;
   taskId: string;
   freelancerUserId: string;
-  coverLetter: string;
+  coverLetter: string;        // empty string for anonymized freelancer view
   bidAmount: number;
   status: number;
+  statusLabel: string;
   submittedAt: string;
 }
 
@@ -53,6 +52,7 @@ export interface EscrowTransaction {
   taskId: string;
   amountUSD: number;
   status: number;
+  statusLabel: string;
   heldAt: string;
   releasedAt?: string;
 }

@@ -29,6 +29,21 @@ import { TaskService } from '../../../../core/services/task.service';
           @if (error()) {
             <div class="bg-red-50 dark:bg-red-900/20 text-red-600 text-sm px-4 py-3 rounded-xl">{{ error() }}</div>
           }
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Category</label>
+            <select formControlName="category" class="input-field">
+              <option [value]="0">Other</option>
+              <option [value]="1">Programming & Development</option>
+              <option [value]="2">Design & Creative</option>
+              <option [value]="3">Writing & Translation</option>
+              <option [value]="4">Marketing & Sales</option>
+              <option [value]="5">Video & Animation</option>
+              <option [value]="6">Music & Audio</option>
+              <option [value]="7">Data Science</option>
+              <option [value]="8">Business & Consulting</option>
+              <option [value]="9">Admin & Support</option>
+            </select>
+          </div>
           <button type="submit" class="btn-primary w-full" [disabled]="loading() || form.invalid">
             @if (loading()) { <span>...</span> } @else { {{ 'task.post' | translate }} }
           </button>
@@ -44,10 +59,12 @@ export class PostTaskComponent {
   loading = signal(false);
   error = signal('');
 
+
   form = this.fb.group({
     title: ['', [Validators.required, Validators.minLength(5)]],
     description: ['', [Validators.required, Validators.minLength(20)]],
-    budgetUSD: [null, [Validators.required, Validators.min(1)]]
+    budgetUSD: [null, [Validators.required, Validators.min(1)]],
+    category: [0, Validators.required]   // REQ 2
   });
 
   submit() {
