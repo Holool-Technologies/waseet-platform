@@ -68,7 +68,7 @@ import { WaseetTask, Proposal, EscrowTransaction } from '../../../../core/models
                       <span class="font-bold text-primary-500">\${{ p.bidAmount }}</span>
                       <div class="flex items-center gap-3">
                         <span class="text-xs text-gray-400">{{ p.submittedAt | date:'d MMM' }}</span>
-                        @if (auth.isClient() && task()!.status === 0 || task()!.status === 1) {
+                        @if (auth.isClient() && (task()!.status === 0 || task()!.status === 1)) {
                           <button (click)="award(p.proposalId)" class="btn-primary text-xs px-3 py-1.5">
                             Award
                           </button>
@@ -135,8 +135,8 @@ export class TaskDetailComponent implements OnInit {
     const code = this.route.snapshot.paramMap.get('code')!;
     this.taskService.getByCode(code).subscribe(t => {
       this.task.set(t);
+      this.taskService.getProposals(code).subscribe(p => this.proposals.set(p));
       if (this.auth.isClient()) {
-        this.taskService.getProposals(code).subscribe(p => this.proposals.set(p));
         this.escrowService.getByTask(code).subscribe(e => this.escrow.set(e));
       }
     });

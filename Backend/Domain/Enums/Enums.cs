@@ -13,7 +13,8 @@ public enum TaskCategory
     WritingTranslation = 3,
     MarketingSales = 4,
     VideoAnimation = 5,
-    DataScience = 6,
-    BusinessConsulting = 7,
-    AdminSupport = 8
+    Audio = 6,
+    DataScience = 7,
+    BusinessConsulting = 8,
+    AdminSupport = 9
 }

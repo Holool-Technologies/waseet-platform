@@ -2,6 +2,7 @@
 using Application.Features.Tasks.DTOs;
 using Waseet.Application.Features.Tasks.Interfaces;
 using Domain.Entities;
+using Domain.Enums;
 using Task = Domain.Entities.Task;
 using Infrastructure.Persistence;
 
@@ -26,7 +27,7 @@ public class TaskService : ITaskService
         var user = await _db.Users.FindAsync(new object[] { clientUserId }, ct)
             ?? throw new KeyNotFoundException("User not found.");
 
-        if (user.KycStatus != Domain.Enums.KycStatus.Approved)
+        if (user.KycStatus != KycStatus.Approved)
             throw new InvalidOperationException("KYC verification required before posting tasks.");
 
         var code = await _codeGen.GenerateAsync(ct);
@@ -38,6 +39,7 @@ public class TaskService : ITaskService
             Title = request.Title.Trim(),
             Description = request.Description.Trim(),
             BudgetUSD = request.BudgetUSD,
+            Category = (TaskCategory)request.Category,
             Status = Domain.Enums.TaskStatus.Open
         };
 
