@@ -10,6 +10,7 @@ public class Task
     public Guid? FreelancerUserId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public TaskCategory Category { get; set; } = TaskCategory.Other;
     public decimal BudgetUSD { get; set; }
     public TaskStatus Status { get; set; } = TaskStatus.Open;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -18,4 +19,5 @@ public class Task
     public ICollection<Proposal> Proposals { get; set; } = [];
     public ICollection<ChatMessage> Messages { get; set; } = [];
     public EscrowTransaction? Escrow { get; set; }
+    
 }

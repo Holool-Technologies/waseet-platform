@@ -30,11 +30,14 @@ public static class DependencyInjection
             configuration.GetSection("JwtSettings"));
 
         services.AddScoped<IAuthService, AuthService>();
-	    services.AddScoped<IKycService, KycService>();
-	    services.AddSingleton<EncryptionService>();
-	    services.AddSingleton<IFileStorageService, LocalFileStorageService>();
+	services.AddScoped<IKycService, KycService>();
+	services.AddSingleton<EncryptionService>();
+	services.AddSingleton<IFileStorageService, LocalFileStorageService>();
         services.AddScoped<TaskCodeGenerator>();
         services.AddScoped<ITaskService, TaskService>();
+	// Add HttpClient for Resend
+	services.AddHttpClient("Resend");
+	services.AddScoped<IEmailService, ResendEmailService>();
 
         var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
         var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);

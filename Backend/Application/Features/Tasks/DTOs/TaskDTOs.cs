@@ -1,9 +1,8 @@
-namespace Application.Features.Tasks.DTOs;
-
 public record CreateTaskRequest(
     string Title,
     string Description,
-    decimal BudgetUSD
+    decimal BudgetUSD,
+    int Category = 0
 );
 
 public record TaskResponse(
@@ -16,6 +15,8 @@ public record TaskResponse(
     decimal BudgetUSD,
     int Status,
     string StatusLabel,
+    int Category,
+    string CategoryLabel,
     int ProposalCount,
     DateTime CreatedAt,
     DateTime UpdatedAt
@@ -27,7 +28,9 @@ public record TaskListRequest(
     string? Search = null,
     decimal? MinBudget = null,
     decimal? MaxBudget = null,
-    int? Status = null
+    int? Status = null,
+    int? Category = null,
+    string SortBy = "newest"  // newest | oldest | budget_asc | budget_desc
 );
 
 public record PagedResult<T>(

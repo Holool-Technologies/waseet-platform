@@ -2,7 +2,7 @@
 using Application.Features.Tasks.DTOs;
 using Waseet.Application.Features.Tasks.Interfaces;
 using Domain.Entities;
-using DomainTask = Domain.Entities.Task;
+using Task = Domain.Entities.Task;
 using Infrastructure.Persistence;
 
 namespace Infrastructure.Services;
@@ -31,7 +31,7 @@ public class TaskService : ITaskService
 
         var code = await _codeGen.GenerateAsync(ct);
 
-        var task = new DomainTask
+        var task = new Task
         {
             PublicTaskCode = code,
             ClientUserId = clientUserId,
@@ -68,13 +68,21 @@ public class TaskService : ITaskService
 
         if (request.Status.HasValue)
             query = query.Where(t => (int)t.Status == request.Status.Value);
+        if (request.Category.HasValue)
+            query = query.Where(t => (int)t.Category == request.Category.Value);
         else
             query = query.Where(t => t.Status == Domain.Enums.TaskStatus.Open
                                   || t.Status == Domain.Enums.TaskStatus.Bidding);
 
         var total = await query.CountAsync(ct);
+	query = request.SortBy switch
+	{
+               "oldest"       => query.OrderBy(t => t.CreatedAt),
+               "budget_asc"   => query.OrderBy(t => t.BudgetUSD),
+               "budget_desc"  => query.OrderByDescending(t => t.BudgetUSD),
+                _             => query.OrderByDescending(t => t.CreatedAt)
+	};
         var items = await query
-            .OrderByDescending(t => t.CreatedAt)
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
             .ToListAsync(ct);
@@ -151,26 +159,51 @@ public class TaskService : ITaskService
         return MapProposal(proposal);
     }
 
-    public async Task<IEnumerable<ProposalResponse>> GetProposalsAsync(
-        Guid clientUserId,
-        string taskCode,
-        CancellationToken ct = default)
+  public async Task<IEnumerable<ProposalResponse>> GetProposalsAsync(
+    Guid requestingUserId,
+    string taskCode,
+    bool isClient,
+    CancellationToken ct = default)
+{
+    var task = await _db.Tasks
+        .AsNoTracking()
+        .FirstOrDefaultAsync(t => t.PublicTaskCode == taskCode, ct)
+        ?? throw new KeyNotFoundException("Task not found.");
+
+    // Client sees full proposals. Freelancer sees anonymized competing bids.
+    if (!isClient && task.FreelancerUserId != requestingUserId)
     {
-        var task = await _db.Tasks
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.PublicTaskCode == taskCode, ct)
-            ?? throw new KeyNotFoundException("Task not found.");
-
-        if (task.ClientUserId != clientUserId)
-            throw new UnauthorizedAccessException("Only the task owner can view proposals.");
-
+        // Freelancer sees only bid amounts + status — no cover letters, no IDs
         return await _db.Proposals
             .AsNoTracking()
             .Where(p => p.TaskId == task.TaskId)
             .OrderByDescending(p => p.SubmittedAt)
-            .Select(p => MapProposal(p))
+            .Select(p => new ProposalResponse(
+                Guid.Empty,           // anonymized
+                p.TaskId,
+                Guid.Empty,           // anonymized
+                string.Empty,         // no cover letter
+                p.BidAmount,
+                (int)p.Status,
+                p.Status.ToString(),
+                p.SubmittedAt
+            ))
             .ToListAsync(ct);
     }
+
+    if (isClient && task.ClientUserId != requestingUserId)
+        throw new UnauthorizedAccessException("Only the task owner can view full proposals.");
+
+    return await _db.Proposals
+        .AsNoTracking()
+        .Where(p => p.TaskId == task.TaskId)
+        .OrderByDescending(p => p.SubmittedAt)
+        .Select(p => new ProposalResponse(
+            p.ProposalId, p.TaskId, p.FreelancerUserId,
+            p.CoverLetter, p.BidAmount, (int)p.Status,
+            p.Status.ToString(), p.SubmittedAt))
+        .ToListAsync(ct);
+}
 
     public async Task<TaskResponse> AwardProposalAsync(
         Guid clientUserId,
@@ -279,10 +312,12 @@ public class TaskService : ITaskService
         return MapEscrow(escrow);
     }
 
-    private static TaskResponse MapTask(DomainTask t, int proposalCount) => new(
-        t.TaskId, t.PublicTaskCode, t.ClientUserId, t.FreelancerUserId,
-        t.Title, t.Description, t.BudgetUSD, (int)t.Status,
-        t.Status.ToString(), proposalCount, t.CreatedAt, t.UpdatedAt);
+    private static TaskResponse MapTask(Task t, int proposalCount) => new(
+    t.TaskId, t.PublicTaskCode, t.ClientUserId, t.FreelancerUserId,
+    t.Title, t.Description, t.BudgetUSD, (int)t.Status,
+    t.Status.ToString(), (int)t.Category,
+    t.Category.ToString().Replace("_", " & "),
+    proposalCount, t.CreatedAt, t.UpdatedAt);
 
     private static ProposalResponse MapProposal(Proposal p) => new(
         p.ProposalId, p.TaskId, p.FreelancerUserId,

@@ -1,9 +1,10 @@
 ﻿using Domain.Entities;
+using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using TaskStatus = Domain.Enums.TaskStatus;
 
-namespace Waseet.Infrastructure.Persistence.Configurations;
+namespace Infrastructure.Persistence.Configurations;
 
 public class TaskConfiguration : IEntityTypeConfiguration<global::Domain.Entities.Task>
 {
@@ -26,6 +27,10 @@ public class TaskConfiguration : IEntityTypeConfiguration<global::Domain.Entitie
         builder.Property(t => t.Description)
             .IsRequired()
             .HasColumnType("NVARCHAR(MAX)");
+
+        builder.Property(t => t.Category)
+            .IsRequired()
+            .HasDefaultValue(TaskCategory.Other);
 
         builder.Property(t => t.BudgetUSD)
             .IsRequired()

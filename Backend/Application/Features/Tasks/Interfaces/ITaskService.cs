@@ -11,7 +11,7 @@ public interface ITaskService
     Task<IEnumerable<TaskResponse>> GetMineAsync(Guid userId, CancellationToken ct = default);
 
     Task<ProposalResponse> SubmitProposalAsync(Guid freelancerUserId, string taskCode, CreateProposalRequest request, CancellationToken ct = default);
-    Task<IEnumerable<ProposalResponse>> GetProposalsAsync(Guid clientUserId, string taskCode, CancellationToken ct = default);
+    Task<IEnumerable<ProposalResponse>> GetProposalsAsync(Guid clientUserId, string taskCode,bool isClient, CancellationToken ct = default);
     Task<TaskResponse> AwardProposalAsync(Guid clientUserId, string taskCode, Guid proposalId, CancellationToken ct = default);
 
     Task<EscrowResponse> GetEscrowAsync(string taskCode, CancellationToken ct = default);

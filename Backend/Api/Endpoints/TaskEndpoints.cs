@@ -93,25 +93,26 @@ public static class TaskEndpoints
             }
         }).RequireAuthorization();
 
-        // Auth: get proposals (client only)
-        group.MapGet("/{code}/proposals", async (
-            string code,
-            ITaskService taskService,
-            ClaimsPrincipal user,
-            CancellationToken ct) =>
-        {
-            var userId = GetUserId(user);
-            try
-            {
-                var proposals = await taskService.GetProposalsAsync(userId, code, ct);
-                return Results.Ok(proposals);
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return Results.Forbid();
-            }
-        }).RequireAuthorization();
-
+        // Auth: get proposals 
+       group.MapGet("/{code}/proposals", async (
+    string code,
+    ITaskService taskService,
+    ClaimsPrincipal user,
+    CancellationToken ct) =>
+{
+    var userId = GetUserId(user);
+    var role = user.FindFirstValue("role");
+    var isClient = role == "Client";
+    try
+    {
+        var proposals = await taskService.GetProposalsAsync(userId, code, isClient, ct);
+        return Results.Ok(proposals);
+    }
+    catch (UnauthorizedAccessException)
+    {
+        return Results.Forbid();
+    }
+}).RequireAuthorization();
         // Auth: award proposal (client only)
         group.MapPatch("/{code}/award/{proposalId:guid}", async (
             string code,
