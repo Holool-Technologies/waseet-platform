@@ -3,6 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
+import { finalize } from 'rxjs/operators';
 import { AuthService } from '../../../core/services/auth.service';
 import { SocialAuthService, GoogleLoginProvider } from '@abacritt/angularx-social-login';
 
@@ -136,20 +137,21 @@ export class LoginComponent {
     this.clearErrors();
     this.loading.set(true);
 
-    this.auth.login(this.form.value as any).subscribe({
-      next: () => this.router.navigate(['/dashboard']),
-      error: (err) => {
-        this.loading.set(false);
-        const code = err?.error?.code;
-        if (code === 'EMAIL_NOT_FOUND') {
-          this.emailError.set('No account found with this email.');
-        } else if (code === 'WRONG_PASSWORD') {
-          this.passwordError.set('Incorrect password. Please try again.');
-        } else {
-          this.generalError.set('Login failed. Please try again.');
+    this.auth.login(this.form.value as any)
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: () => this.router.navigate(['/dashboard']),
+        error: (err) => {
+          const code = err?.error?.code;
+          if (code === 'EMAIL_NOT_FOUND') {
+            this.emailError.set('No account found with this email.');
+          } else if (code === 'WRONG_PASSWORD') {
+            this.passwordError.set('Incorrect password. Please try again.');
+          } else {
+            this.generalError.set('Login failed. Please try again.');
+          }
         }
-      }
-    });
+      });
   }
 
   googleLogin() {

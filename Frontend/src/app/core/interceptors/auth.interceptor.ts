@@ -13,7 +13,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(authReq).pipe(
     catchError((err: HttpErrorResponse) => {
-      if (err.status === 401) {
+      const isAuthRequest = req.url.includes('/api/auth/');
+      const isRefreshRequest = req.url.includes('/api/auth/refresh');
+      const isRevokeRequest = req.url.includes('/api/auth/revoke');
+
+      if (err.status === 401 && !isAuthRequest) {
         return auth.refresh().pipe(
           switchMap(() => {
             const retryReq = req.clone({
@@ -27,6 +31,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
           })
         );
       }
+
+      if (err.status === 401 && (isRefreshRequest || isRevokeRequest)) {
+        auth.logout();
+      }
+
       return throwError(() => err);
     })
   );

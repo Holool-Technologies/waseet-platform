@@ -88,7 +88,7 @@ import { WaseetTask, Proposal, EscrowTransaction } from '../../../../core/models
           }
 
           <!-- Submit proposal (freelancer only) -->
-          @if (auth.isFreelancer() && task()!.status === 0) {
+          @if (showProposalForm()) {
             <div class="card p-6">
               <h2 class="font-semibold text-gray-900 dark:text-white mb-4">{{ 'task.submitProposal' | translate }}</h2>
               <form [formGroup]="proposalForm" (ngSubmit)="submitProposal()" class="space-y-4">
@@ -145,7 +145,26 @@ export class TaskDetailComponent implements OnInit {
   submitProposal() {
     if (this.proposalForm.invalid || !this.task()) return;
     this.taskService.submitProposal(this.task()!.publicTaskCode, this.proposalForm.value as any)
-      .subscribe(() => this.proposalForm.reset());
+      .subscribe((proposal) => {
+        this.proposalForm.reset();
+        const task = this.task();
+        if (task) {
+          this.task.set({
+            ...task,
+            hasSubmittedProposal: true,
+            proposalCount: task.proposalCount + 1
+          });
+        }
+        this.proposals.set([...this.proposals(), proposal]);
+      });
+  }
+
+  showProposalForm() {
+    const task = this.task();
+    const status = Number(task?.status);
+    return this.auth.isFreelancer()
+      && !task?.hasSubmittedProposal
+      && (status === 0 || status === 1);
   }
 
   award(proposalId: string) {

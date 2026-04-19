@@ -7,7 +7,7 @@ public interface ITaskService
 {
     Task<TaskResponse> CreateAsync(Guid clientUserId, CreateTaskRequest request, CancellationToken ct = default);
     Task<PagedResult<TaskResponse>> BrowseAsync(TaskListRequest request, CancellationToken ct = default);
-    Task<TaskResponse> GetByCodeAsync(string code, CancellationToken ct = default);
+    Task<TaskResponse> GetByCodeAsync(string code, Guid? requestingUserId = null, CancellationToken ct = default);
     Task<IEnumerable<TaskResponse>> GetMineAsync(Guid userId, CancellationToken ct = default);
 
     Task<ProposalResponse> SubmitProposalAsync(Guid freelancerUserId, string taskCode, CreateProposalRequest request, CancellationToken ct = default);

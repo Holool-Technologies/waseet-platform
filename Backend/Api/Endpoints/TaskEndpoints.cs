@@ -26,11 +26,13 @@ public static class TaskEndpoints
         group.MapGet("/{code}", async (
             string code,
             ITaskService taskService,
+            ClaimsPrincipal user,
             CancellationToken ct) =>
         {
             try
             {
-                var task = await taskService.GetByCodeAsync(code, ct);
+                var userId = GetOptionalUserId(user);
+                var task = await taskService.GetByCodeAsync(code, userId, ct);
                 return Results.Ok(task);
             }
             catch (KeyNotFoundException ex)
@@ -159,4 +161,14 @@ public static class TaskEndpoints
     private static Guid GetUserId(ClaimsPrincipal user) =>
         Guid.Parse(user.FindFirstValue("sub")
             ?? user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    private static Guid? GetOptionalUserId(ClaimsPrincipal user)
+    {
+        if (user?.Identity?.IsAuthenticated != true)
+            return null;
+
+        var userId = user.FindFirstValue("sub")
+            ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(userId, out var id) ? id : null;
+    }
 }

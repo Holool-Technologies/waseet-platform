@@ -64,7 +64,11 @@ export class AuthService {
   logout() {
     this.http.post(`${environment.apiUrl}/auth/revoke`, {
       refreshToken: this._refreshToken()
-    }).subscribe();
+    }).subscribe({
+      error: () => {
+        // Ignore revoke failures because the token may already be invalid.
+      }
+    });
     this.clearTokens();
     this.router.navigate(['/auth/login']);
   }

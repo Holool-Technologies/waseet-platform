@@ -38,9 +38,12 @@ public static class AuthEndpoints
                 var result = await authService.LoginAsync(request, ct);
                 return Results.Ok(result);
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Results.Unauthorized();
+                var code = ex.Message.Contains("not found") ? "EMAIL_NOT_FOUND" : "WRONG_PASSWORD";
+                return Results.Json(
+                    new { code, message = ex.Message },
+                    statusCode: 401);
             }
         });
 

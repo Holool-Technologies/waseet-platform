@@ -45,7 +45,7 @@ public class TaskService : ITaskService
 
         _db.Tasks.Add(task);
         await _db.SaveChangesAsync(ct);
-        return MapTask(task, 0);
+        return MapTask(task, 0, false);
     }
 
     public async Task<PagedResult<TaskResponse>> BrowseAsync(
@@ -90,7 +90,7 @@ public class TaskService : ITaskService
             .ToListAsync(ct);
 
         return new PagedResult<TaskResponse>(
-            items.Select(t => MapTask(t, t.Proposals.Count)),
+            items.Select(t => MapTask(t, t.Proposals.Count, false)),
             total,
             request.Page,
             request.PageSize,
@@ -98,7 +98,7 @@ public class TaskService : ITaskService
         );
     }
 
-    public async Task<TaskResponse> GetByCodeAsync(string code, CancellationToken ct = default)
+    public async Task<TaskResponse> GetByCodeAsync(string code, Guid? requestingUserId = null, CancellationToken ct = default)
     {
         var task = await _db.Tasks
             .Include(t => t.Proposals)
@@ -106,7 +106,15 @@ public class TaskService : ITaskService
             .FirstOrDefaultAsync(t => t.PublicTaskCode == code, ct)
             ?? throw new KeyNotFoundException($"Task {code} not found.");
 
-        return MapTask(task, task.Proposals.Count);
+        var hasSubmittedProposal = false;
+        if (requestingUserId is not null && requestingUserId != task.ClientUserId)
+        {
+            hasSubmittedProposal = await _db.Proposals
+                .AsNoTracking()
+                .AnyAsync(p => p.TaskId == task.TaskId && p.FreelancerUserId == requestingUserId, ct);
+        }
+
+        return MapTask(task, task.Proposals.Count, hasSubmittedProposal);
     }
 
     public async Task<IEnumerable<TaskResponse>> GetMineAsync(
@@ -118,7 +126,7 @@ public class TaskService : ITaskService
             .AsNoTracking()
             .Where(t => t.ClientUserId == userId || t.FreelancerUserId == userId)
             .OrderByDescending(t => t.CreatedAt)
-            .Select(t => MapTask(t, t.Proposals.Count))
+            .Select(t => MapTask(t, t.Proposals.Count, false))
             .ToListAsync(ct);
     }
 
@@ -244,7 +252,7 @@ public class TaskService : ITaskService
         _db.EscrowTransactions.Add(escrow);
         await _db.SaveChangesAsync(ct);
 
-        return MapTask(task, task.Proposals.Count);
+        return MapTask(task, task.Proposals.Count, false);
     }
 
     public async Task<EscrowResponse> GetEscrowAsync(string taskCode, CancellationToken ct = default)
@@ -314,12 +322,12 @@ public class TaskService : ITaskService
         return MapEscrow(escrow);
     }
 
-    private static TaskResponse MapTask(Task t, int proposalCount) => new(
+    private static TaskResponse MapTask(Task t, int proposalCount, bool hasSubmittedProposal) => new(
     t.TaskId, t.PublicTaskCode, t.ClientUserId, t.FreelancerUserId,
     t.Title, t.Description, t.BudgetUSD, (int)t.Status,
     t.Status.ToString(), (int)t.Category,
     t.Category.ToString().Replace("_", " & "),
-    proposalCount, t.CreatedAt, t.UpdatedAt);
+    proposalCount, hasSubmittedProposal, t.CreatedAt, t.UpdatedAt);
 
     private static ProposalResponse MapProposal(Proposal p) => new(
         p.ProposalId, p.TaskId, p.FreelancerUserId,

@@ -18,6 +18,7 @@ public record TaskResponse(
     int Category,
     string CategoryLabel,
     int ProposalCount,
+    bool HasSubmittedProposal,
     DateTime CreatedAt,
     DateTime UpdatedAt
 );

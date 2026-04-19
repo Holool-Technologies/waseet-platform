@@ -11,6 +11,7 @@ export interface WaseetTask {
   category: number;
   categoryLabel: string;      // REQ 2
   proposalCount: number;
+  hasSubmittedProposal: boolean;
   createdAt: string;
   updatedAt: string;
 }
