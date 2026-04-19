@@ -2,7 +2,8 @@ using Api.Endpoints;
 using Application;
 using Infrastructure;
 using Microsoft.OpenApi.Models;
-using Waseet.Api.Middleware;
+using Api.Middleware;
+using Api.Hubs;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplicationServices();
@@ -52,6 +53,14 @@ builder.Services.AddCors(options =>
 //              .AllowAnyMethod()
 //              .AllowCredentials());
 //});
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    options.MaximumReceiveMessageSize = 32 * 1024; // 32KB max message
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+});
+
 
 var app = builder.Build();
 
@@ -70,9 +79,9 @@ if (app.Environment.IsDevelopment())
 app.MapAuthEndpoints();
 app.MapTaskEndpoints();
 app.MapEscrowEndpoints();
-
+app.MapChatEndpoints();
 app.MapKycEndpoints();
-// app.MapHub<ChatHub>("/hubs/chat"); — Phase 4
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.UseStaticFiles();
 app.Run();

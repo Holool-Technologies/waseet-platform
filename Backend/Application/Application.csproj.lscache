@@ -60,6 +60,9 @@ DependencyInjection.cs
 Features/Auth/
  DTOs/AuthDTOs.cs
  Interfaces/IAuthService.cs
+Features/Chat/
+ DTOs/ChatDTOs.cs
+ Interfaces/IChatService.cs.cs
 Features/Kyc/
  DTOs/KycDTOs.cs
  Interfaces/IKycService.cs

@@ -1,7 +1,7 @@
 ﻿using System.Net;
 using System.Text.Json;
 
-namespace Waseet.Api.Middleware;
+namespace Api.Middleware;
 
 public class ExceptionMiddleware
 {

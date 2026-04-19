@@ -1,4 +1,6 @@
 ﻿using Application.Features.Auth.Interfaces;
+using Application.Features.Chat.Interfaces;
+using Application.Features.Kyc.Interfaces;
 using Domain.Interfaces;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
@@ -8,7 +10,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Application.Features.Kyc.Interfaces;
 using Waseet.Application.Features.Tasks.Interfaces;
 
 
@@ -30,13 +31,15 @@ public static class DependencyInjection
             configuration.GetSection("JwtSettings"));
 
         services.AddScoped<IAuthService, AuthService>();
-	services.AddScoped<IKycService, KycService>();
-	services.AddSingleton<EncryptionService>();
-	services.AddSingleton<IFileStorageService, LocalFileStorageService>();
+	    services.AddScoped<IKycService, KycService>();
+	    services.AddSingleton<EncryptionService>();
+    	services.AddSingleton<IFileStorageService, LocalFileStorageService>();
         services.AddScoped<TaskCodeGenerator>();
         services.AddScoped<ITaskService, TaskService>();
-	// Add HttpClient for Resend
-	services.AddHttpClient("Resend");
+        services.AddScoped<IChatService, ChatService>();
+        services.AddSingleton<IAiSanitizerService, AiSanitizerService>();
+        // Add HttpClient for Resend
+        services.AddHttpClient("Resend");
 	services.AddScoped<IEmailService, ResendEmailService>();
 
         var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()!;

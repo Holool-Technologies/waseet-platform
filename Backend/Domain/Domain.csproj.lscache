@@ -67,6 +67,7 @@ Entities/
  User.cs
 Enums/Enums.cs
 Interfaces/
+ IAiSanitizerService.cs
  IEmailService.cs
  IFileStorageService.cs
 obj/Debug/net9.0/
