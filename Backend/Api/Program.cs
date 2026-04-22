@@ -1,6 +1,7 @@
 using Api.Endpoints;
 using Application;
 using Infrastructure;
+using Infrastructure.Persistence;
 using Microsoft.OpenApi.Models;
 using Api.Middleware;
 using Api.Hubs;
@@ -63,7 +64,11 @@ builder.Services.AddSignalR(options =>
 
 
 var app = builder.Build();
-
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<WaseetDbContext>();
+    await WaseetDbSeeder.SeedAsync(db);
+}
 app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseCors("WaseetCors");
@@ -81,6 +86,7 @@ app.MapTaskEndpoints();
 app.MapEscrowEndpoints();
 app.MapChatEndpoints();
 app.MapKycEndpoints();
+app.MapAdminEndpoints();
 app.MapHub<ChatHub>("/hubs/chat");
 
 app.UseStaticFiles();

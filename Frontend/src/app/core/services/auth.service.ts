@@ -19,7 +19,7 @@ export class AuthService {
       return {
         userId: decoded.sub,
         email: decoded.email,
-        role: decoded.role === 'Client' ? 1 : 2,
+        role: decoded.role === 'Admin' ? 99 : decoded.role === 'Client' ? 1 : 2,        
         kycStatus: decoded.kycStatus
       };
     } catch { return null; }

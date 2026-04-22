@@ -1,6 +1,6 @@
 ﻿namespace Domain.Enums;
 
-public enum UserRole { Client = 1, Freelancer = 2 }
+public enum UserRole { Client = 1, Freelancer = 2, Admin = 99 }
 public enum KycStatus { Pending = 0, Approved = 1, Rejected = 2 }
 public enum TaskStatus { Open = 0, Bidding = 1, Active = 2, Completed = 3, Disputed = 4 }
 public enum ProposalStatus { Pending = 0, Accepted = 1, Rejected = 2 }

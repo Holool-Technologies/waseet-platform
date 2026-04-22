@@ -38,5 +38,9 @@ export const routes: Routes = [
     loadComponent: () => import('./features/kyc/kyc.component').then(m => m.KycComponent),
     canActivate: [authGuard]
   },
+  {
+  path: 'admin',
+  loadChildren: () => import('./features/admin/admin.routes').then(m => m.ADMIN_ROUTES)
+  },
   { path: '**', redirectTo: 'browse' }
 ];

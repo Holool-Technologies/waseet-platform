@@ -1,6 +1,7 @@
 ﻿using Application.Features.Auth.Interfaces;
 using Application.Features.Chat.Interfaces;
 using Application.Features.Kyc.Interfaces;
+using Application.Features.Admin.Interfaces;
 using Domain.Interfaces;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
@@ -40,7 +41,8 @@ public static class DependencyInjection
         services.AddSingleton<IAiSanitizerService, AiSanitizerService>();
         // Add HttpClient for Resend
         services.AddHttpClient("Resend");
-	services.AddScoped<IEmailService, ResendEmailService>();
+	    services.AddScoped<IEmailService, ResendEmailService>();
+        services.AddScoped<IAdminService, AdminService>();
 
         var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
         var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
@@ -82,8 +84,11 @@ public static class DependencyInjection
 	   options.MapInboundClaims = false;
         });
 
-        services.AddAuthorization();
-
+        services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy =>
+        policy.RequireClaim("role", "Admin"));
+});
         return services;
     }
 }

@@ -36,6 +36,12 @@ import { CommonModule } from '@angular/common';
               + Post Task
             </a>
           }
+          @if (auth.currentUser()?.role === 99) {
+             <a routerLink="/admin" routerLinkActive="text-primary-500"
+               class="text-sm font-medium text-red-500 hover:text-red-600 transition-colors">
+               Admin Panel
+            </a>
+          }
           </div>
 
           <div class="flex items-center gap-3">
