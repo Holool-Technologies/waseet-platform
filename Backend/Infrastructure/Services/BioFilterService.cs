@@ -1,9 +1,10 @@
 ﻿using Azure;
-using Azure.AI.OpenAI;
+using Domain.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OpenAI;
 using OpenAI.Chat;
+using System.Text.Json;
 
 namespace Infrastructure.Services;
 
@@ -11,7 +12,7 @@ public record BioFilterResult(string FilteredBio, bool WasModified);
 
 public class BioFilterService
 {
-    private readonly OpenAIClient? _client;
+    private readonly ChatClient? _chatClient;
     private readonly string _deployment;
     private readonly ILogger<BioFilterService> _logger;
     private readonly bool _enabled;
@@ -40,36 +41,52 @@ public class BioFilterService
 
         if (!string.IsNullOrWhiteSpace(endpoint) && !string.IsNullOrWhiteSpace(apiKey))
         {
-            _client = new OpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
+            _chatClient = new ChatClient("gpt-4o-mini", new System.ClientModel.ApiKeyCredential(apiKey));
             _enabled = true;
         }
     }
 
     public async Task<BioFilterResult> FilterAsync(string rawBio, CancellationToken ct = default)
     {
-        if (!_enabled || _client is null || string.IsNullOrWhiteSpace(rawBio))
+        if (!_enabled || _chatClient is null || string.IsNullOrWhiteSpace(rawBio))
             return new BioFilterResult(rawBio, false);
 
         try
         {
-            var options = new ChatCompletionsOptions
-            {
-                DeploymentName = _deployment,
-                MaxTokens = 400,
-                Temperature = 0.3f,
-                Messages =
+            var messages = new List<ChatMessage>
                 {
-                    new ChatRequestSystemMessage(BioSystemPrompt),
-                    new ChatRequestUserMessage(rawBio)
-                }
-            };
+                    ChatMessage.CreateSystemMessage(BioSystemPrompt),
+                    ChatMessage.CreateUserMessage(rawBio)
+                };
 
-            var response = await _client.GetChatCompletionsAsync(options, ct);
-            var filtered = response.Value.Choices[0].Message.Content.Trim();
-            bool wasModified = !string.Equals(filtered, rawBio,
-                StringComparison.OrdinalIgnoreCase);
+            var chatCompletion = await _chatClient.CompleteChatAsync(
+                messages,
+                new ChatCompletionOptions
+                {
+                    Temperature = 0,
+                    MaxOutputTokenCount = 400
+                },
+                cancellationToken: ct
+            );
 
-            return new BioFilterResult(filtered, wasModified);
+            var json = chatCompletion.Value.Content[0].Text.Trim();
+
+            // Strip markdown fences if model wraps in ```json
+            if (json.StartsWith("```")) json = json.Split('\n', 3)[1];
+            if (json.EndsWith("```")) json = json[..^3].Trim();
+
+            var parsed = JsonSerializer.Deserialize<BioFilterResult>(json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (parsed is not null)
+            {
+                return new BioFilterResult(
+                    parsed.FilteredBio,
+                    parsed.WasModified
+                );
+            }
+                _logger.LogWarning("Bio filter returned invalid JSON, saving original. Response: {Response}", json);
+                return new BioFilterResult(rawBio, false);
         }
         catch (Exception ex)
         {

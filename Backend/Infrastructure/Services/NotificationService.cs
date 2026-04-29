@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Domain.Entities;
 using Domain.Enums;
+using Task=System.Threading.Tasks.Task;
 using Infrastructure.Hubs;
 namespace Infrastructure.Services;
 

@@ -18,6 +18,6 @@ public interface ITaskService
     Task<EscrowResponse> ReleaseEscrowAsync(Guid clientUserId, Guid escrowId, CancellationToken ct = default);
     Task<EscrowResponse> DisputeEscrowAsync(Guid userId, Guid escrowId, CancellationToken ct = default);
     Task<TaskResponse> AdminApproveTaskAsync(Guid taskId, CancellationToken ct = default);
-    Task AdminRejectTaskAsync(Guid taskId, string reason, CancellationToken ct = default);
+    Task<TaskResponse> AdminRejectTaskAsync(Guid taskId, string reason, CancellationToken ct = default);
     Task<PagedResult<TaskResponse>> GetPendingApprovalAsync(int page, int pageSize, CancellationToken ct = default);
 }

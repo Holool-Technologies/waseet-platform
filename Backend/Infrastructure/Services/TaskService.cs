@@ -16,7 +16,7 @@ public class TaskService : ITaskService
     private readonly WaseetDbContext _db;
     private readonly TaskCodeGenerator _codeGen;
     private readonly INotificationService _notifications;
-    public TaskService(WaseetDbContext db, TaskCodeGenerator codeGen INotificationService notifications)
+    public TaskService(WaseetDbContext db, TaskCodeGenerator codeGen ,INotificationService notifications)
     {
         _db = db;
         _codeGen = codeGen;
@@ -349,23 +349,23 @@ public class TaskService : ITaskService
             $"/tasks/{task.PublicTaskCode}",
             ct);
 
-        return MapTask(task, 0);
+        return MapTask(task, 0,true);
     }
 
-    public async Task AdminRejectTaskAsync(
+    public async Task<TaskResponse> AdminRejectTaskAsync(
         Guid taskId, string reason, CancellationToken ct = default)
     {
         var task = await _db.Tasks.FindAsync([taskId], ct)
             ?? throw new KeyNotFoundException("Task not found.");
 
-        task.ApprovalStatus = Domain.Enums.TaskApprovalStatus.Rejected;
+        task.ApprovalStatus = TaskApprovalStatus.Rejected;
         task.RejectionReason = reason;
         task.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
         await _notifications.CreateAndPushAsync(
             task.ClientUserId,
-            Domain.Enums.NotificationType.TaskRejected,
+            NotificationType.TaskRejected,
             "Task Rejected",
             "تم رفض مهمتك",
             $"Your task \"{task.Title}\" was rejected. Reason: {reason}",
@@ -373,6 +373,7 @@ public class TaskService : ITaskService
             task.TaskId.ToString(),
             "/dashboard",
             ct);
+        return MapTask(task, 0,false);
     }
 
     public async Task<PagedResult<TaskResponse>> GetPendingApprovalAsync(
@@ -387,7 +388,7 @@ public class TaskService : ITaskService
             .OrderBy(t => t.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(t => MapTask(t, 0))
+            .Select(t => MapTask(t, 0,false))
             .ToListAsync(ct);
 
         return new PagedResult<TaskResponse>(
