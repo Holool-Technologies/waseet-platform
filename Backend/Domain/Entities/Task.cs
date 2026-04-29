@@ -19,5 +19,9 @@ public class Task
     public ICollection<Proposal> Proposals { get; set; } = [];
     public ICollection<ChatMessage> Messages { get; set; } = [];
     public EscrowTransaction? Escrow { get; set; }
-    
+
+    public TaskApprovalStatus ApprovalStatus { get; set; } = TaskApprovalStatus.PendingApproval;
+    public string RejectionReason { get; set; } = string.Empty;
+    public DateTime? ApprovedAt { get; set; }
+
 }

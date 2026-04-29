@@ -18,3 +18,15 @@ public enum TaskCategory
     BusinessConsulting = 8,
     AdminSupport = 9
 }
+public enum PortfolioStatus { Pending = 0, Approved = 1, Rejected = 2 }
+
+public enum TaskApprovalStatus { PendingApproval = 0, Approved = 1, Rejected = 2 }
+
+public enum NotificationType
+{
+    KycApproved = 1, KycRejected = 2,
+    TaskApproved = 3, TaskRejected = 4,
+    ProposalAwarded = 5,
+    PortfolioApproved = 6, PortfolioRejected = 7,
+    NewMessage = 8, NewProposal = 9
+}
