@@ -37,6 +37,15 @@ public static class ChatEndpoints
                 return Results.NotFound(new { message = ex.Message });
             }
         });
+
+        group.MapGet("/inbox", async (
+    IChatService chatService,
+    ClaimsPrincipal user, CancellationToken ct) =>
+        {
+            var userId = GetUserId(user);
+            var inbox = await chatService.GetInboxAsync(userId, ct);
+            return Results.Ok(inbox);
+        });
     }
 
     private static Guid GetUserId(ClaimsPrincipal user) =>

@@ -1,21 +1,111 @@
 {
   "app": { "name": "وسيط", "tagline": "اعمل دون الكشف عن هويتك" },
-  "nav": { "browse": "تصفح المهام", "post": "أضف مهمة", "dashboard": "لوحة التحكم", "login": "تسجيل الدخول", "register": "إنشاء حساب", "logout": "تسجيل الخروج" },
+  "nav": {
+    "browse": "تصفح المهام",
+    "post": "أضف مهمة",
+    "dashboard": "لوحة التحكم",
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب",
+    "logout": "تسجيل الخروج"
+  },
   "auth": {
-    "login": "تسجيل الدخول", "register": "إنشاء حساب", "email": "البريد الإلكتروني", "password": "كلمة المرور",
-    "confirmPassword": "تأكيد كلمة المرور", "asClient": "أنا عميل", "asFreelancer": "أنا مستقل",
-    "noAccount": "ليس لديك حساب؟", "hasAccount": "لديك حساب بالفعل؟",
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "confirmPassword": "تأكيد كلمة المرور",
+    "asClient": "أنا عميل",
+    "asFreelancer": "أنا مستقل",
+    "noAccount": "ليس لديك حساب؟",
+    "hasAccount": "لديك حساب بالفعل؟",
     "kycRequired": "يجب التحقق من الهوية قبل نشر المهام.",
-    "forgotPassword": "نسيت كلمة المرور؟","resetPassword": "إعادة تعيين كلمة المرور","continueWithGoogle": "المتابعة عبر جوجل"
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "resetPassword": "إعادة تعيين كلمة المرور",
+    "continueWithGoogle": "المتابعة عبر جوجل"
   },
   "task": {
-    "title": "عنوان المهمة", "description": "الوصف", "budget": "الميزانية (دولار)",
-    "post": "نشر المهمة", "browse": "تصفح المهام", "myTasks": "مهامي",
-    "status": { "open": "مفتوحة", "bidding": "قيد التقديم", "active": "نشطة", "completed": "مكتملة", "disputed": "متنازع عليها" },
-    "noTasks": "لا توجد مهام.", "submitProposal": "تقديم عرض"
+    "title": "عنوان المهمة",
+    "description": "الوصف",
+    "budget": "الميزانية (دولار)",
+    "post": "نشر المهمة",
+    "browse": "تصفح المهام",
+    "myTasks": "مهامي",
+    "status": {
+      "open": "مفتوحة",
+      "bidding": "قيد التقديم",
+      "active": "نشطة",
+      "completed": "مكتملة",
+      "disputed": "متنازع عليها"
+    },
+    "noTasks": "لا توجد مهام.",
+    "submitProposal": "تقديم عرض"
   },
-  "proposal": { "coverLetter": "رسالة التقديم", "bidAmount": "عرضك (دولار)", "submit": "تقديم العرض" },
-  "chat": { "typeMessage": "اكتب رسالة...", "send": "إرسال", "aiNote": "تتم معالجة الرسائل بالذكاء الاصطناعي لحماية الهوية." },
-  "escrow": { "status": "حالة الضمان", "held": "محجوز", "released": "محرر", "disputed": "متنازع عليه", "release": "تحرير الدفعة", "dispute": "رفع نزاع" },
-  "kyc": { "title": "التحقق من الهوية", "fullName": "الاسم الكامل", "uploadDoc": "رفع المستند", "submit": "تقديم للتحقق", "pending": "قيد المراجعة", "approved": "تم التحقق", "rejected": "فشل التحقق" }
+  "proposal": {
+    "coverLetter": "رسالة التقديم",
+    "bidAmount": "عرضك (دولار)",
+    "submit": "تقديم العرض"
+  },
+  "chat": {
+    "typeMessage": "اكتب رسالة...",
+    "send": "إرسال",
+    "aiNote": "تتم معالجة الرسائل بالذكاء الاصطناعي لحماية الهوية."
+  },
+  "escrow": {
+    "status": "حالة الضمان",
+    "held": "محجوز",
+    "released": "محرر",
+    "disputed": "متنازع عليه",
+    "release": "تحرير الدفعة",
+    "dispute": "رفع نزاع"
+  },
+  "kyc": {
+    "title": "التحقق من الهوية",
+    "fullName": "الاسم الكامل",
+    "uploadDoc": "رفع المستند",
+    "submit": "تقديم للتحقق",
+    "pending": "قيد المراجعة",
+    "approved": "تم التحقق",
+    "rejected": "فشل التحقق"
+  },
+  "profile": {
+    "title": "ملفي الشخصي",
+    "bio": "نبذة تعريفية",
+    "skills": "المهارات",
+    "portfolio": "معرض الأعمال",
+    "balance": "رصيد الحساب",
+    "editBio": "تعديل النبذة",
+    "saveBio": "حفظ الملف الشخصي",
+    "uploadImage": "رفع صورة",
+    "aiImproved": "النسخة المحسّنة بالذكاء الاصطناعي",
+    "humanDetected": "تم اكتشاف أشخاص في الصورة — تم رفضها",
+    "pendingReview": "في انتظار مراجعة المشرف"
+  },
+  "notifications": {
+    "title": "الإشعارات",
+    "markAllRead": "تعيين الكل كمقروء",
+    "empty": "لا توجد إشعارات بعد",
+    "KycApproved": "تم التحقق من الهوية",
+    "KycRejected": "فشل التحقق",
+    "TaskApproved": "تم نشر المهمة",
+    "TaskRejected": "تم رفض المهمة",
+    "ProposalAwarded": "تم اختيارك!",
+    "PortfolioApproved": "تمت الموافقة على معرض الأعمال",
+    "PortfolioRejected": "تم رفض صورة من معرض الأعمال"
+  },
+  "chat": {
+    "inbox": "الرسائل",
+    "noConversations": "لا توجد محادثات بعد",
+    "typeMessage": "اكتب رسالة...",
+    "send": "إرسال",
+    "aiNote": "تتم معالجة الرسائل بالذكاء الاصطناعي لحماية هويتك.",
+    "blocked": "تم حظر الرسالة"
+  },
+  "admin": {
+    "portfolio": "مراجعة المحفظة",
+    "pending": "قيد المراجعة",
+    "approve": "موافقة",
+    "reject": "رفض",
+    "taskApproval": "موافقة على المهام",
+    "rejectionReason": "سبب الرفض"
+  }
 }

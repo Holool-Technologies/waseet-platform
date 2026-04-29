@@ -1,7 +1,8 @@
-﻿using Application.Features.Auth.Interfaces;
+﻿using Application.Features.Admin.Interfaces;
+using Application.Features.Auth.Interfaces;
 using Application.Features.Chat.Interfaces;
 using Application.Features.Kyc.Interfaces;
-using Application.Features.Admin.Interfaces;
+using Application.Features.Notifications.Interfaces;
 using Domain.Interfaces;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
@@ -43,6 +44,10 @@ public static class DependencyInjection
         services.AddHttpClient("Resend");
 	    services.AddScoped<IEmailService, ResendEmailService>();
         services.AddScoped<IAdminService, AdminService>();
+        services.AddSingleton<IVisionService, AzureVisionService>();
+        services.AddSingleton<BioFilterService>();
+        services.AddScoped<ProfileService>();
+        services.AddScoped<INotificationService, NotificationService>();
 
         var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
         var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);

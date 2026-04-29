@@ -79,3 +79,4 @@ public record AdminPagedResult<T>(
 public record BanUserRequest(bool Ban);
 public record AdminDecideKycRequest(string Decision);
 public record AdminResolveDisputeRequest(string Resolution); // "release" or "refund"
+public record AdminRejectTaskRequest(string Reason);

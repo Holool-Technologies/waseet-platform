@@ -72,6 +72,25 @@ public class ChatService : IChatService
         _db.ChatMessages.Add(message);
         await _db.SaveChangesAsync(ct);
 
+        task = await _db.Tasks.FindAsync([taskId], ct);
+        if (task is not null)
+        {
+            var conv = await _db.ChatConversations
+                .FirstOrDefaultAsync(c => c.TaskId == taskId, ct);
+
+            if (conv is not null)
+            {
+                conv.LastMessage = sanitized.SanitizedContent[..Math.Min(100, sanitized.SanitizedContent.Length)];
+                conv.LastMessageAt = DateTime.UtcNow;
+
+                if (task.ClientUserId == senderUserId)
+                    conv.FreelancerUnreadCount++;
+                else
+                    conv.ClientUnreadCount++;
+
+                await _db.SaveChangesAsync(ct);
+            }
+        }
         return new ChatMessageResponse(
             message.MessageId,
             message.TaskId,
@@ -116,5 +135,45 @@ public class ChatService : IChatService
                 m.SentAt
             ))
             .ToListAsync(ct);
+    }
+    public async Task<IEnumerable<ConversationResponse>> GetInboxAsync(
+    Guid userId, CancellationToken ct = default)
+    {
+        return await _db.ChatConversations
+            .Include(c => c.Task)
+            .AsNoTracking()
+            .Where(c => c.ClientUserId == userId || c.FreelancerUserId == userId)
+            .OrderByDescending(c => c.LastMessageAt)
+            .Select(c => new ConversationResponse(
+                c.ConversationId,
+                c.TaskId,
+                c.Task.PublicTaskCode,
+                c.Task.Title,
+                c.ClientUserId == userId ? "Freelancer" : "Client",
+                c.LastMessage,
+                c.LastMessageAt,
+                c.ClientUserId == userId ? c.ClientUnreadCount : c.FreelancerUnreadCount
+            ))
+            .ToListAsync(ct);
+    }
+
+    public async Task EnsureConversationAsync(
+        Guid taskId, Guid clientId, Guid freelancerId, CancellationToken ct = default)
+    {
+        var exists = await _db.ChatConversations
+            .AnyAsync(c => c.TaskId == taskId
+                        && c.ClientUserId == clientId
+                        && c.FreelancerUserId == freelancerId, ct);
+
+        if (!exists)
+        {
+            _db.ChatConversations.Add(new ChatConversation
+            {
+                TaskId = taskId,
+                ClientUserId = clientId,
+                FreelancerUserId = freelancerId
+            });
+            await _db.SaveChangesAsync(ct);
+        }
     }
 }

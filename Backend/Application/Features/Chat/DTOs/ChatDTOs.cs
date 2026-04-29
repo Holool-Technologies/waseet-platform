@@ -14,3 +14,14 @@ public record SendMessageRequest(
     Guid TaskId,
     string Content
 );
+
+public record ConversationResponse(
+    Guid ConversationId,
+    Guid TaskId,
+    string TaskCode,
+    string TaskTitle,
+    string OtherPartyRole,
+    string LastMessage,
+    DateTime LastMessageAt,
+    int UnreadCount
+);

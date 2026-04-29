@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { path: '/admin/tasks',     label: 'Tasks',       icon: '📋' },
   { path: '/admin/escrow',    label: 'Escrow',      icon: '💰' },
   { path: '/admin/chat-logs', label: 'Chat Logs',   icon: '💬' },
+  { path: '/admin/portfolio', label: 'Portfolio',  icon: '🖼' },
 ];
 
 @Component({

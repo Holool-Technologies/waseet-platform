@@ -1,10 +1,11 @@
 using Api.Endpoints;
+using Api.Hubs;
+using Api.Middleware;
 using Application;
 using Infrastructure;
+using Infrastructure.Hubs;
 using Infrastructure.Persistence;
 using Microsoft.OpenApi.Models;
-using Api.Middleware;
-using Api.Hubs;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplicationServices();
@@ -87,7 +88,12 @@ app.MapEscrowEndpoints();
 app.MapChatEndpoints();
 app.MapKycEndpoints();
 app.MapAdminEndpoints();
-app.MapHub<ChatHub>("/hubs/chat");
+app.MapProfileEndpoints();
+app.MapNotificationEndpoints();
+
+// Replace old ChatHub with unified hub:
+app.MapHub<WaseetHub>("/hubs/waseet");
+//app.MapHub<ChatHub>("/hubs/chat");
 
 app.UseStaticFiles();
 app.Run();

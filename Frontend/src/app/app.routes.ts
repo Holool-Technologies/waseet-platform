@@ -38,6 +38,25 @@ export const routes: Routes = [
     loadComponent: () => import('./features/kyc/kyc.component').then(m => m.KycComponent),
     canActivate: [authGuard]
   },
+  { 
+    path: 'profile',        
+    loadComponent: () => import('./features/profile/profile.component').then(m => m.ProfileComponent), 
+    canActivate: [authGuard] 
+  },
+  { 
+    path: 'profile/:userId',
+    loadComponent: () => import('./features/profile/public-profile.component').then(m => m.PublicProfileComponent) 
+  },
+  { 
+    path: 'notifications',  
+    loadComponent: () => import('./features/notifications/notifications.component').then(m => m.NotificationsComponent), 
+    canActivate: [authGuard] 
+  },
+  { 
+  path: 'chat/inbox',     
+  loadComponent: () => import('./features/chat/inbox/chat-inbox.component').then(m => m.ChatInboxComponent), 
+  canActivate: [authGuard] 
+  },
   {
   path: 'admin',
   loadChildren: () => import('./features/admin/admin.routes').then(m => m.ADMIN_ROUTES)

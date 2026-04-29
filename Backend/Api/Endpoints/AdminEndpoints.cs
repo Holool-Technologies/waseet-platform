@@ -1,5 +1,8 @@
 using Application.Features.Admin.DTOs;
 using Application.Features.Admin.Interfaces;
+using Azure.Core;
+using Infrastructure.Services;
+using Waseet.Application.Features.Tasks.Interfaces;
 
 namespace Api.Endpoints;
 
@@ -88,5 +91,27 @@ public static class AdminEndpoints
             int page, int pageSize, bool blockedOnly,
             CancellationToken ct) =>
             Results.Ok(await adminService.GetChatLogsAsync(page, pageSize, blockedOnly, ct)));
+
+        // Task approval queue
+        group.MapGet("/tasks/pending-approval", async (
+            ITaskService taskService,
+            int page, int pageSize, CancellationToken ct) =>
+            Results.Ok(await taskService.GetPendingApprovalAsync(page, pageSize, ct)));
+
+        group.MapPatch("/tasks/{taskId:guid}/approve", async (
+            Guid taskId, ITaskService taskService, CancellationToken ct) =>
+        {
+            var task = await taskService.AdminApproveTaskAsync(taskId, ct);
+            return Results.Ok(task);
+        });
+
+        group.MapPatch("/tasks/{taskId:guid}/reject", async (
+            Guid taskId,
+            AdminRejectTaskRequest request,
+            ITaskService taskService, CancellationToken ct) =>
+        {
+            await taskService.AdminRejectTaskAsync(taskId, request.Reason, ct);
+            return Results.NoContent();
+        });
     }
 }

@@ -1,10 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Application.Features.Notifications.Interfaces;
 using Application.Features.Tasks.DTOs;
-using Waseet.Application.Features.Tasks.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
-using Task = Domain.Entities.Task;
 using Infrastructure.Persistence;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Waseet.Application.Features.Tasks.Interfaces;
+using Task = Domain.Entities.Task;
+using TaskStatus = Domain.Enums.TaskStatus;
 
 namespace Infrastructure.Services;
 
@@ -12,11 +15,12 @@ public class TaskService : ITaskService
 {
     private readonly WaseetDbContext _db;
     private readonly TaskCodeGenerator _codeGen;
-
-    public TaskService(WaseetDbContext db, TaskCodeGenerator codeGen)
+    private readonly INotificationService _notifications;
+    public TaskService(WaseetDbContext db, TaskCodeGenerator codeGen INotificationService notifications)
     {
         _db = db;
         _codeGen = codeGen;
+        _notifications = notifications;
     }
 
     public async Task<TaskResponse> CreateAsync(
@@ -40,7 +44,8 @@ public class TaskService : ITaskService
             Description = request.Description.Trim(),
             BudgetUSD = request.BudgetUSD,
             Category = (TaskCategory)request.Category,
-            Status = Domain.Enums.TaskStatus.Open
+            Status = TaskStatus.Open,
+            ApprovalStatus = TaskApprovalStatus.PendingApproval
         };
 
         _db.Tasks.Add(task);
@@ -56,7 +61,7 @@ public class TaskService : ITaskService
             .Include(t => t.Proposals)
             .AsNoTracking()
             .AsQueryable();
-
+        query = query.Where(t => t.ApprovalStatus == TaskApprovalStatus.Approved);
         if (!string.IsNullOrWhiteSpace(request.Search))
             query = query.Where(t =>
                 t.Title.Contains(request.Search) ||
@@ -73,8 +78,8 @@ public class TaskService : ITaskService
         if (request.Category.HasValue)
             query = query.Where(t => (int)t.Category == request.Category.Value);
         else
-            query = query.Where(t => t.Status == Domain.Enums.TaskStatus.Open
-                                  || t.Status == Domain.Enums.TaskStatus.Bidding);
+            query = query.Where(t => t.Status == TaskStatus.Open
+                                  || t.Status == TaskStatus.Bidding);
 
         var total = await query.CountAsync(ct);
 	query = request.SortBy switch
@@ -320,6 +325,74 @@ public class TaskService : ITaskService
 
         await _db.SaveChangesAsync(ct);
         return MapEscrow(escrow);
+    }
+
+    public async Task<TaskResponse> AdminApproveTaskAsync(
+    Guid taskId, CancellationToken ct = default)
+    {
+        var task = await _db.Tasks.FindAsync([taskId], ct)
+            ?? throw new KeyNotFoundException("Task not found.");
+
+        task.ApprovalStatus = Domain.Enums.TaskApprovalStatus.Approved;
+        task.ApprovedAt = DateTime.UtcNow;
+        task.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        await _notifications.CreateAndPushAsync(
+            task.ClientUserId,
+            Domain.Enums.NotificationType.TaskApproved,
+            "Task Published",
+            "تم نشر مهمتك",
+            $"Your task \"{task.Title}\" has been approved and is now live.",
+            $"تمت الموافقة على مهمتك \"{task.Title}\" وأصبحت متاحة الآن.",
+            task.TaskId.ToString(),
+            $"/tasks/{task.PublicTaskCode}",
+            ct);
+
+        return MapTask(task, 0);
+    }
+
+    public async Task AdminRejectTaskAsync(
+        Guid taskId, string reason, CancellationToken ct = default)
+    {
+        var task = await _db.Tasks.FindAsync([taskId], ct)
+            ?? throw new KeyNotFoundException("Task not found.");
+
+        task.ApprovalStatus = Domain.Enums.TaskApprovalStatus.Rejected;
+        task.RejectionReason = reason;
+        task.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        await _notifications.CreateAndPushAsync(
+            task.ClientUserId,
+            Domain.Enums.NotificationType.TaskRejected,
+            "Task Rejected",
+            "تم رفض مهمتك",
+            $"Your task \"{task.Title}\" was rejected. Reason: {reason}",
+            $"تم رفض مهمتك \"{task.Title}\". السبب: {reason}",
+            task.TaskId.ToString(),
+            "/dashboard",
+            ct);
+    }
+
+    public async Task<PagedResult<TaskResponse>> GetPendingApprovalAsync(
+        int page, int pageSize, CancellationToken ct = default)
+    {
+        var query = _db.Tasks
+            .Where(t => t.ApprovalStatus == Domain.Enums.TaskApprovalStatus.PendingApproval)
+            .AsNoTracking();
+
+        var total = await query.CountAsync(ct);
+        var items = await query
+            .OrderBy(t => t.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(t => MapTask(t, 0))
+            .ToListAsync(ct);
+
+        return new PagedResult<TaskResponse>(
+            items, total, page, pageSize,
+            (int)Math.Ceiling(total / (double)pageSize));
     }
 
     private static TaskResponse MapTask(Task t, int proposalCount, bool hasSubmittedProposal) => new(

@@ -1,38 +1,92 @@
-/* You can add global styles to this file, and also import other style files */
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --font-main: 'Inter', sans-serif;
-}
+/* ── Base ──────────────────────────────────── */
+:root { --font-main: 'Inter', sans-serif; color-scheme: light; }
+[dir="rtl"] { --font-main: 'Cairo', sans-serif; font-family: 'Cairo', sans-serif; }
 
-[dir="rtl"] {
-  --font-main: 'Cairo', sans-serif;
-  font-family: 'Cairo', sans-serif;
-}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
 
 body {
   font-family: var(--font-main);
-  @apply bg-surface-light dark:bg-surface-dark text-gray-900 dark:text-gray-100 transition-colors duration-300;
+  @apply bg-surface-50 dark:bg-surface-950 text-neutral-900 dark:text-neutral-100;
+  @apply transition-colors duration-200;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* ── Design Tokens ─────────────────────────── */
 @layer components {
-  .btn-primary {
-    @apply bg-primary-500 hover:bg-primary-600 text-white font-medium px-5 py-2.5 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+
+  /* Buttons */
+  .btn { @apply inline-flex items-center justify-center gap-2 font-medium rounded-xl transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none; }
+  .btn-sm  { @apply btn text-xs px-3 py-1.5; }
+  .btn-md  { @apply btn text-sm px-4 py-2.5; }
+  .btn-lg  { @apply btn text-base px-6 py-3; }
+
+  .btn-primary { @apply btn-md bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white focus-visible:ring-brand-500 shadow-sm; }
+  .btn-secondary { @apply btn-md bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 focus-visible:ring-brand-500; }
+  .btn-ghost  { @apply btn-md bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400; }
+  .btn-danger { @apply btn-md bg-danger-500 hover:bg-danger-700 text-white focus-visible:ring-danger-500; }
+
+  /* Inputs */
+  .input {
+    @apply w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700;
+    @apply bg-white dark:bg-neutral-800/60 text-neutral-900 dark:text-neutral-100;
+    @apply placeholder-neutral-400 dark:placeholder-neutral-500;
+    @apply focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent;
+    @apply transition-all duration-150 text-sm;
   }
-  .btn-outline {
-    @apply border border-primary-500 text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 font-medium px-5 py-2.5 rounded-xl transition-all duration-200;
-  }
-  .input-field {
-    @apply w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200;
-  }
-  .card {
-    @apply bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm;
-  }
-  .badge-status {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-  }
+  .input-field { @apply input; } /* backwards compat */
+  .input-error { @apply input ring-2 ring-danger-500 border-transparent; }
+  .input-label { @apply block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5; }
+  .input-hint  { @apply text-xs text-neutral-400 mt-1; }
+  .input-error-msg { @apply text-xs text-danger-500 mt-1.5 flex items-center gap-1; }
+
+  /* Cards */
+  .card { @apply bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-100 dark:border-neutral-800 shadow-card; }
+  .card-hover { @apply card transition-all duration-200 hover:shadow-soft hover:border-brand-100 dark:hover:border-brand-900/50 cursor-pointer; }
+  .card-glass { @apply bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-neutral-700/50; }
+
+  /* Badges */
+  .badge { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium; }
+  .badge-status { @apply badge; }
+  .badge-green  { @apply badge bg-success-50 text-success-700 dark:bg-success-700/20 dark:text-success-400; }
+  .badge-amber  { @apply badge bg-warning-50 text-warning-700 dark:bg-warning-700/20 dark:text-warning-400; }
+  .badge-red    { @apply badge bg-danger-50 text-danger-700 dark:bg-danger-700/20 dark:text-danger-400; }
+  .badge-blue   { @apply badge bg-brand-50 text-brand-700 dark:bg-brand-700/20 dark:text-brand-400; }
+  .badge-gray   { @apply badge bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400; }
+
+  /* Divider */
+  .divider { @apply border-0 border-t border-neutral-100 dark:border-neutral-800; }
+
+  /* Page wrapper */
+  .page { @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8; }
+  .page-sm { @apply max-w-2xl mx-auto px-4 py-10; }
+
+  /* Section heading */
+  .section-title { @apply text-2xl font-bold text-neutral-900 dark:text-white tracking-tight; }
+  .section-sub   { @apply text-sm text-neutral-500 dark:text-neutral-400 mt-1; }
+
+  /* Skeleton */
+  .skeleton { @apply animate-pulse bg-neutral-200 dark:bg-neutral-800 rounded-lg; }
+
+  /* Avatar */
+  .avatar { @apply rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 flex items-center justify-center font-semibold; }
+  .avatar-sm { @apply avatar w-8 h-8 text-xs; }
+  .avatar-md { @apply avatar w-10 h-10 text-sm; }
+  .avatar-lg { @apply avatar w-14 h-14 text-lg; }
 }
+
+/* ── Scrollbar ──────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { @apply bg-transparent; }
+::-webkit-scrollbar-thumb { @apply bg-neutral-300 dark:bg-neutral-700 rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-neutral-400 dark:bg-neutral-600; }
+
+/* ── Animations ─────────────────────────────── */
+.animate-fade-in  { animation: fadeIn  .2s ease-out both; }
+.animate-slide-up { animation: slideUp .25s ease-out both; }
