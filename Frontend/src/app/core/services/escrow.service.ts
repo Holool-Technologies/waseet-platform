@@ -12,10 +12,10 @@ export class EscrowService {
   }
 
   release(escrowId: string) {
-    return this.http.patch(`${environment.apiUrl}/escrow/${escrowId}/release`, {});
+    return this.http.patch<EscrowTransaction>(`${environment.apiUrl}/escrow/${escrowId}/release`, {});
   }
 
   dispute(escrowId: string) {
-    return this.http.patch(`${environment.apiUrl}/escrow/${escrowId}/dispute`, {});
+    return this.http.patch<EscrowTransaction>(`${environment.apiUrl}/escrow/${escrowId}/dispute`, {});
   }
 }

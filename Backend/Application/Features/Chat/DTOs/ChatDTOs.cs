@@ -25,3 +25,5 @@ public record ConversationResponse(
     DateTime LastMessageAt,
     int UnreadCount
 );
+
+public record OpenConversationRequest(Guid TaskId, Guid FreelancerUserId);

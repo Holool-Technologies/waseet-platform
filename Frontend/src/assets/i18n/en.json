@@ -38,7 +38,12 @@
       "disputed": "Disputed"
     },
     "noTasks": "No tasks found.",
-    "submitProposal": "Submit Proposal"
+    "submitProposal": "Submit Proposal",
+    "approvalPending": "Under Review",
+    "approvalApproved": "Published",
+    "approvalRejected": "Rejected",
+    "rejectionReason": "Rejection reason",
+    "pendingApprovalNote": "Your task is being reviewed by our team."
   },
   "proposal": {
     "coverLetter": "Cover Letter",

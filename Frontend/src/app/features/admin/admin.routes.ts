@@ -15,6 +15,7 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'escrow',   loadComponent: () => import('./escrow/admin-escrow.component').then(m => m.AdminEscrowComponent) },
       { path: 'chat-logs',loadComponent: () => import('./chat-logs/admin-chat-logs.component').then(m => m.AdminChatLogsComponent) },
       { path: 'portfolio', loadComponent: () => import('./portfolio/admin-portfolio.component').then(m => m.AdminPortfolioComponent) },
+      { path: 'task-approval', loadComponent: () => import('./task-approval/admin-task-approval.component').then(m => m.AdminTaskApprovalComponent)},
     ]
   }
 ];

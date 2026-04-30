@@ -4,6 +4,12 @@ import { AdminService } from '../../../core/services/admin.service';
 import { DashboardStats } from '../../../core/models/admin.models';
 import { RouterLink } from '@angular/router';
 
+interface TaskStat {
+  label: string;
+  value: number;
+  color: string;
+}
+
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
@@ -119,7 +125,7 @@ export class AdminDashboardComponent implements OnInit {
   stats = signal<DashboardStats | null>(null);
   loading = signal(true);
 
-  taskStats = () => {
+  taskStats = (): TaskStat[] => {
     const s = this.stats();
     if (!s) return [];
     return [

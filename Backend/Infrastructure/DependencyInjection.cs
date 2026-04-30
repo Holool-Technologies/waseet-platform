@@ -48,6 +48,7 @@ public static class DependencyInjection
         services.AddSingleton<BioFilterService>();
         services.AddScoped<ProfileService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<AnonymousNameService>();
 
         var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
         var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);

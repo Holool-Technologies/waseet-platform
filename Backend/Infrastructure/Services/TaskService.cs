@@ -221,10 +221,8 @@ public class TaskService : ITaskService
 }
 
     public async Task<TaskResponse> AwardProposalAsync(
-        Guid clientUserId,
-        string taskCode,
-        Guid proposalId,
-        CancellationToken ct = default)
+        Guid clientUserId, string taskCode,
+        Guid proposalId, CancellationToken ct = default)
     {
         var task = await _db.Tasks
             .Include(t => t.Proposals)
@@ -237,17 +235,14 @@ public class TaskService : ITaskService
         var proposal = task.Proposals.FirstOrDefault(p => p.ProposalId == proposalId)
             ?? throw new KeyNotFoundException("Proposal not found.");
 
-        // Award
         proposal.Status = Domain.Enums.ProposalStatus.Accepted;
         task.FreelancerUserId = proposal.FreelancerUserId;
         task.Status = Domain.Enums.TaskStatus.Active;
         task.UpdatedAt = DateTime.UtcNow;
 
-        // Reject all other proposals
         foreach (var other in task.Proposals.Where(p => p.ProposalId != proposalId))
             other.Status = Domain.Enums.ProposalStatus.Rejected;
 
-        // Auto-create escrow
         var escrow = new EscrowTransaction
         {
             TaskId = task.TaskId,
@@ -257,7 +252,19 @@ public class TaskService : ITaskService
         _db.EscrowTransactions.Add(escrow);
         await _db.SaveChangesAsync(ct);
 
-        return MapTask(task, task.Proposals.Count, false);
+        // Notify awarded freelancer
+        await _notifications.CreateAndPushAsync(
+            proposal.FreelancerUserId,
+            Domain.Enums.NotificationType.ProposalAwarded,
+            "You've been selected!",
+            "تم اختيارك!",
+            $"Congratulations! You have been awarded the task \"{task.Title}\". You can now start working.",
+            $"تهانينا! لقد تم اختيارك للمهمة \"{task.Title}\". يمكنك البدء في العمل الآن.",
+            task.TaskId.ToString(),
+            $"/chat/{task.TaskId}",
+            ct);
+
+        return MapTask(task, task.Proposals.Count);
     }
 
     public async Task<EscrowResponse> GetEscrowAsync(string taskCode, CancellationToken ct = default)
@@ -396,12 +403,15 @@ public class TaskService : ITaskService
             (int)Math.Ceiling(total / (double)pageSize));
     }
 
-    private static TaskResponse MapTask(Task t, int proposalCount, bool hasSubmittedProposal) => new(
+private static TaskResponse MapTask(Task t, int proposalCount) => new(
     t.TaskId, t.PublicTaskCode, t.ClientUserId, t.FreelancerUserId,
-    t.Title, t.Description, t.BudgetUSD, (int)t.Status,
-    t.Status.ToString(), (int)t.Category,
-    t.Category.ToString().Replace("_", " & "),
-    proposalCount, hasSubmittedProposal, t.CreatedAt, t.UpdatedAt);
+    t.Title, t.Description, t.BudgetUSD,
+    (int)t.Status, t.Status.ToString(),
+    (int)t.Category, t.Category.ToString().Replace("_", " & "),
+    proposalCount,
+    t.ApprovalStatus.ToString(),
+    t.RejectionReason,
+    t.CreatedAt, t.UpdatedAt);
 
     private static ProposalResponse MapProposal(Proposal p) => new(
         p.ProposalId, p.TaskId, p.FreelancerUserId,

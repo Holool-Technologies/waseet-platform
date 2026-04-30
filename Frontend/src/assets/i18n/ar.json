@@ -38,7 +38,12 @@
       "disputed": "متنازع عليها"
     },
     "noTasks": "لا توجد مهام.",
-    "submitProposal": "تقديم عرض"
+    "submitProposal": "تقديم عرض",
+    "approvalPending": "قيد المراجعة",
+    "approvalApproved": "منشورة",
+    "approvalRejected": "مرفوضة",
+    "rejectionReason": "سبب الرفض",
+    "pendingApprovalNote": "مهمتك قيد المراجعة من قِبل فريقنا."
   },
   "proposal": {
     "coverLetter": "رسالة التقديم",

@@ -1,4 +1,4 @@
-import { Component, inject, signal, HostListener, OnInit } from '@angular/core';
+import { Component, inject, signal, HostListener, OnInit, computed } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
@@ -27,32 +27,39 @@ import { HubService } from '../../core/services/hub.service';
             </span>
           </a>
 
-          <!-- Desktop nav -->
+          <!-- Desktop nav — ONLY for non-admin users -->
           <div class="hidden md:flex items-center gap-1 flex-1 ms-4">
-            <a routerLink="/browse" routerLinkActive="text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20"
-               class="px-3 py-2 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-all">
-              {{ 'nav.browse' | translate }}
-            </a>
-            @if (auth.isLoggedIn()) {
-              <a routerLink="/dashboard" routerLinkActive="text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20"
-                 class="px-3 py-2 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-all">
-                {{ 'nav.dashboard' | translate }}
+            @if (!isAdmin()) {
+              <a routerLink="/browse" routerLinkActive="text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20"
+                class="px-3 py-2 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-brand-600 hover:bg-brand-50 transition-all">
+                {{ 'nav.browse' | translate }}
               </a>
-              @if (auth.currentUser()?.role === 99) {
-                <a routerLink="/admin"
-                   class="px-3 py-2 rounded-xl text-sm font-medium text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20 transition-all">
-                  Admin
+              @if (auth.isLoggedIn()) {
+                <a routerLink="/dashboard" routerLinkActive="text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20"
+                  class="px-3 py-2 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-brand-600 hover:bg-brand-50 transition-all">
+                  {{ 'nav.dashboard' | translate }}
                 </a>
               }
+              @if (auth.isLoggedIn() && auth.isClient()) {
+                <a routerLink="/my-tasks" routerLinkActive="text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20"
+                  class="px-3 py-2 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-brand-600 hover:bg-brand-50 transition-all">
+                  My Tasks
+                </a>
+              }
+            } @else {
+              <!-- Admin sees admin link only -->
+              <a routerLink="/admin"
+                class="px-3 py-2 rounded-xl text-sm font-medium text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20 transition-all">
+                🛡 Admin Panel
+              </a>
             }
           </div>
 
           <div class="flex items-center gap-2 ms-auto">
 
-            <!-- Post Task — always visible on desktop, REQ 3 fix -->
-            @if (auth.isLoggedIn() && auth.isClient()) {
-              <a routerLink="/post-task"
-                 class="btn-primary hidden sm:inline-flex text-xs py-2 px-3 flex-shrink-0">
+            <!-- Post Task — only for non-admin clients -->
+            @if (auth.isLoggedIn() && auth.isClient() && !isAdmin()) {
+              <a routerLink="/post-task" class="btn-primary hidden sm:inline-flex text-xs py-2 px-3 flex-shrink-0">
                 + {{ 'nav.post' | translate }}
               </a>
             }
@@ -172,33 +179,42 @@ import { HubService } from '../../core/services/hub.service';
           </div>
         </div>
 
-        <!-- Mobile menu drawer -->
+        <!-- Mobile menu — conditional on role -->
         @if (mobileOpen()) {
           <div class="md:hidden pb-4 border-t border-neutral-100 dark:border-neutral-800 pt-3 animate-slide-down">
             <div class="space-y-1">
-              <a routerLink="/browse" (click)="mobileOpen.set(false)"
-                class="block px-3 py-2.5 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800">
-                {{ 'nav.browse' | translate }}
-              </a>
-              @if (auth.isLoggedIn()) {
-                <a routerLink="/dashboard" (click)="mobileOpen.set(false)"
+              @if (!isAdmin()) {
+                <a routerLink="/browse" (click)="mobileOpen.set(false)"
                   class="block px-3 py-2.5 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800">
-                  {{ 'nav.dashboard' | translate }}
+                  {{ 'nav.browse' | translate }}
                 </a>
-                <a routerLink="/chat/inbox" (click)="mobileOpen.set(false)"
-                  class="block px-3 py-2.5 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800">
-                  Messages
-                </a>
-                <a routerLink="/notifications" (click)="mobileOpen.set(false)"
-                  class="block px-3 py-2.5 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800">
-                  Notifications
-                </a>
-                @if (auth.isClient()) {
-                  <a routerLink="/post-task" (click)="mobileOpen.set(false)"
-                    class="block px-3 py-2.5 rounded-xl text-sm font-medium bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400">
-                    + {{ 'nav.post' | translate }}
+                @if (auth.isLoggedIn()) {
+                  <a routerLink="/dashboard" (click)="mobileOpen.set(false)"
+                    class="block px-3 py-2.5 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800">
+                    {{ 'nav.dashboard' | translate }}
                   </a>
+                  <a routerLink="/chat/inbox" (click)="mobileOpen.set(false)"
+                    class="block px-3 py-2.5 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800">
+                    Messages
+                  </a>
+                  <a routerLink="/notifications" (click)="mobileOpen.set(false)"
+                    class="block px-3 py-2.5 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800">
+                    Notifications
+                  </a>
+                  @if (auth.isClient()) {
+                    <a routerLink="/post-task" (click)="mobileOpen.set(false)"
+                      class="block px-3 py-2.5 rounded-xl text-sm font-medium bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400">
+                      + {{ 'nav.post' | translate }}
+                    </a>
+                  }
                 }
+              } @else {
+                <a routerLink="/admin" (click)="mobileOpen.set(false)"
+                  class="block px-3 py-2.5 rounded-xl text-sm font-medium text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20">
+                  🛡 Admin Panel
+                </a>
+              }
+              @if (auth.isLoggedIn()) {
                 <button (click)="auth.logout()"
                   class="w-full text-start px-3 py-2.5 rounded-xl text-sm font-medium text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20">
                   {{ 'nav.logout' | translate }}
@@ -218,14 +234,16 @@ import { HubService } from '../../core/services/hub.service';
 })
 export class NavbarComponent implements OnInit {
   theme = inject(ThemeService);
-  lang  = inject(LangService);
-  auth  = inject(AuthService);
+  lang = inject(LangService);
+  auth = inject(AuthService);
   notifService = inject(NotificationService);
-  private hub  = inject(HubService);
+  private hub = inject(HubService);
+  isAdmin = computed(() => this.auth.currentUser()?.role === 99);
 
-  notifOpen  = signal(false);
+  notifOpen = signal(false);
   mobileOpen = signal(false);
   totalUnreadMessages = signal(0);
+
 
   ngOnInit() {
     if (this.auth.isLoggedIn()) {

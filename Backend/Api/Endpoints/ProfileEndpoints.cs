@@ -115,6 +115,40 @@ public static class ProfileEndpoints
                 itemId, adminId, request.Decision, request.AdminNotes, ct);
             return Results.NoContent();
         }).RequireAuthorization("AdminOnly");
+
+        // Get anonymous profile — client views bidder profile with alias
+        group.MapGet("/anonymous/{userId:guid}/task/{taskId:guid}", async (
+            Guid userId,
+            Guid taskId,
+            ProfileService profileService,
+            AnonymousNameService anonNames,
+            ClaimsPrincipal viewer,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var viewerUserId = GetUserId(viewer);
+                var alias = await anonNames.GetAliasAsync(taskId, viewerUserId, userId, ct);
+                var profile = await profileService.GetPublicAsync(userId, ct);
+
+                // Return profile with alias replacing any identity
+                return Results.Ok(new
+                {
+                    alias,
+                    profile.Title,
+                    profile.Bio,
+                    profile.Skills,
+                    profile.IsPublished,
+                    Portfolio = profile.Portfolio
+                        .Where(p => p.Status == "Approved")
+                        .Select(p => new { p.ItemId, p.ImageUrl, p.Caption, p.UploadedAt })
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(new { message = ex.Message });
+            }
+        });
     }
 
     private static Guid GetUserId(ClaimsPrincipal user) =>

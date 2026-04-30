@@ -5,13 +5,14 @@ import { AuthService } from '../../../core/services/auth.service';
 import { ThemeService } from '../../../core/services/theme.service';
 
 const NAV_ITEMS = [
-  { path: '/admin/dashboard', label: 'Dashboard',  icon: '📊' },
-  { path: '/admin/users',     label: 'Users',       icon: '👥' },
-  { path: '/admin/kyc',       label: 'KYC Queue',   icon: '🪪' },
-  { path: '/admin/tasks',     label: 'Tasks',       icon: '📋' },
-  { path: '/admin/escrow',    label: 'Escrow',      icon: '💰' },
-  { path: '/admin/chat-logs', label: 'Chat Logs',   icon: '💬' },
-  { path: '/admin/portfolio', label: 'Portfolio',  icon: '🖼' },
+  { path: '/admin/dashboard',    label: 'Dashboard',       icon: '📊' },
+  { path: '/admin/users',        label: 'Users',           icon: '👥' },
+  { path: '/admin/kyc',          label: 'KYC Queue',       icon: '🪪' },
+  { path: '/admin/task-approval',label: 'Task Approval',   icon: '✅' },
+  { path: '/admin/tasks',        label: 'All Tasks',       icon: '📋' },
+  { path: '/admin/portfolio',    label: 'Portfolio Review', icon: '🖼' },
+  { path: '/admin/escrow',       label: 'Escrow',          icon: '💰' },
+  { path: '/admin/chat-logs',    label: 'Chat Logs',       icon: '💬' },
 ];
 
 @Component({

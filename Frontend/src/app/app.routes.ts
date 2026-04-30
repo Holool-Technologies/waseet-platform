@@ -30,7 +30,8 @@ export const routes: Routes = [
   },
   {
     path: 'chat/:taskId',
-    loadComponent: () => import('./features/chat/chat.component').then(m => m.ChatComponent),
+    loadComponent: () => import('./features/chat/chat.component')
+      .then(m => m.ChatComponent),
     canActivate: [authGuard]
   },
   {
@@ -52,14 +53,21 @@ export const routes: Routes = [
     loadComponent: () => import('./features/notifications/notifications.component').then(m => m.NotificationsComponent), 
     canActivate: [authGuard] 
   },
-  { 
-  path: 'chat/inbox',     
-  loadComponent: () => import('./features/chat/inbox/chat-inbox.component').then(m => m.ChatInboxComponent), 
-  canActivate: [authGuard] 
-  },
+{
+  path: 'chat/inbox',
+  loadComponent: () => import('./features/chat/inbox/chat-inbox.component')
+    .then(m => m.ChatInboxComponent),
+  canActivate: [authGuard]
+},
   {
   path: 'admin',
   loadChildren: () => import('./features/admin/admin.routes').then(m => m.ADMIN_ROUTES)
   },
-  { path: '**', redirectTo: 'browse' }
+  { path: '**', redirectTo: 'browse' },
+  {
+    path: 'my-tasks',
+    loadComponent: () => import('./features/tasks/my-tasks/my-tasks.component')
+      .then(m => m.MyTasksComponent),
+    canActivate: [authGuard]
+  },
 ];

@@ -61,16 +61,18 @@ export class DashboardComponent implements OnInit {
   auth = inject(AuthService);
   private taskService = inject(TaskService);
   tasks = signal<WaseetTask[]>([]);
-  stats = signal<{label: string, value: number}[]>([]);
+  stats = signal<{label: string, value: number , color: string}[]>([]);
 
   ngOnInit() {
     this.taskService.myTasks().subscribe(t => {
       this.tasks.set(t);
+      const pendingApproval = t.filter((x: any) => x.approvalStatus === 'PendingApproval').length;
+      const rejected        = t.filter((x: any) => x.approvalStatus === 'Rejected').length;
       this.stats.set([
-        { label: 'Total Tasks', value: t.length },
-        { label: 'Active', value: t.filter(x => x.status === 2).length },
-        { label: 'Completed', value: t.filter(x => x.status === 3).length },
-        { label: 'Open', value: t.filter(x => x.status === 0).length },
+        { label: 'Total Tasks',      value: t.length,                                    color: 'var(--color-brand-600)' },
+        { label: 'Pending Approval', value: pendingApproval,                             color: '#f59e0b' },
+        { label: 'Active',           value: t.filter((x: any) => x.status === 2).length, color: '#6366f1' },
+        { label: 'Completed',        value: t.filter((x: any) => x.status === 3).length, color: '#22c55e' },
       ]);
     });
   }
