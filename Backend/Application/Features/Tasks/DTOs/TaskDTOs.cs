@@ -18,7 +18,6 @@ public record TaskResponse(
     int Category,
     string CategoryLabel,
     int ProposalCount,
-    bool HasSubmittedProposal,
     string ApprovalStatus,      // NEW
     string RejectionReason,     // NEW
     DateTime CreatedAt,

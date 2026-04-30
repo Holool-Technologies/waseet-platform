@@ -50,7 +50,7 @@ public class TaskService : ITaskService
 
         _db.Tasks.Add(task);
         await _db.SaveChangesAsync(ct);
-        return MapTask(task, 0, false);
+        return MapTask(task, 0);
     }
 
     public async Task<PagedResult<TaskResponse>> BrowseAsync(
@@ -95,7 +95,7 @@ public class TaskService : ITaskService
             .ToListAsync(ct);
 
         return new PagedResult<TaskResponse>(
-            items.Select(t => MapTask(t, t.Proposals.Count, false)),
+            items.Select(t => MapTask(t, t.Proposals.Count)),
             total,
             request.Page,
             request.PageSize,
@@ -119,7 +119,7 @@ public class TaskService : ITaskService
                 .AnyAsync(p => p.TaskId == task.TaskId && p.FreelancerUserId == requestingUserId, ct);
         }
 
-        return MapTask(task, task.Proposals.Count, hasSubmittedProposal);
+        return MapTask(task, task.Proposals.Count);
     }
 
     public async Task<IEnumerable<TaskResponse>> GetMineAsync(
@@ -131,7 +131,7 @@ public class TaskService : ITaskService
             .AsNoTracking()
             .Where(t => t.ClientUserId == userId || t.FreelancerUserId == userId)
             .OrderByDescending(t => t.CreatedAt)
-            .Select(t => MapTask(t, t.Proposals.Count, false))
+            .Select(t => MapTask(t, t.Proposals.Count))
             .ToListAsync(ct);
     }
 
@@ -356,7 +356,7 @@ public class TaskService : ITaskService
             $"/tasks/{task.PublicTaskCode}",
             ct);
 
-        return MapTask(task, 0,true);
+        return MapTask(task, 0);
     }
 
     public async Task<TaskResponse> AdminRejectTaskAsync(
@@ -380,7 +380,7 @@ public class TaskService : ITaskService
             task.TaskId.ToString(),
             "/dashboard",
             ct);
-        return MapTask(task, 0,false);
+        return MapTask(task, 0);
     }
 
     public async Task<PagedResult<TaskResponse>> GetPendingApprovalAsync(
@@ -395,7 +395,7 @@ public class TaskService : ITaskService
             .OrderBy(t => t.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(t => MapTask(t, 0,false))
+            .Select(t => MapTask(t, 0))
             .ToListAsync(ct);
 
         return new PagedResult<TaskResponse>(

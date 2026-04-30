@@ -12,6 +12,7 @@ export interface WaseetTask {
   categoryLabel: string;      // REQ 2
   proposalCount: number;
   approvalStatus: string;      // PendingApproval | Approved | Rejected
+  rejectionReason?: string;
   hasSubmittedProposal: boolean;
   createdAt: string;
   updatedAt: string;

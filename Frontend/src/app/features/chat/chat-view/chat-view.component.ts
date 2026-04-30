@@ -170,7 +170,8 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
     }
   }
 
-  onEnter(e: KeyboardEvent) {
+  onEnter(e: Event) {
+    if (!(e instanceof KeyboardEvent)) return;
     if (!e.shiftKey) { e.preventDefault(); this.send(); }
   }
 

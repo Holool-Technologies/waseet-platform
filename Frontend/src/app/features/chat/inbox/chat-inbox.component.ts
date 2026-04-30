@@ -1,8 +1,10 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
+import { ChatViewComponent } from '../chat-view/chat-view.component';
 import { environment } from '../../../../environments/environment';
 
 interface Conversation {
@@ -19,7 +21,7 @@ interface Conversation {
 @Component({
   selector: 'app-chat-inbox',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, ChatViewComponent],
   template: `
     <div class="flex h-[calc(100vh-4rem)]">
 
