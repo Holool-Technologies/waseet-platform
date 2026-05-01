@@ -96,9 +96,14 @@ public class ChatService : IChatService
         await _db.SaveChangesAsync(ct);
 
         return new ChatMessageResponse(
-            message.MessageId, message.TaskId,
-            senderRole, message.SanitizedContent,
-            sanitized.PiiDetected, sanitized.Blocked, message.SentAt);
+        message.MessageId,
+        message.TaskId,
+        message.SenderUserId,   // ← ADD
+        senderRole,
+        message.SanitizedContent,
+        sanitized.PiiDetected,
+        sanitized.Blocked,
+        message.SentAt);
     }
 
     public async Task<IEnumerable<ChatMessageResponse>> GetHistoryAsync(
@@ -127,12 +132,12 @@ public class ChatService : IChatService
             .Select(m => new ChatMessageResponse(
                 m.MessageId,
                 m.TaskId,
+                m.SenderUserId,         // ← ADD
                 task.ClientUserId == m.SenderUserId ? "Client" : "Freelancer",
                 m.SanitizedContent,
                 m.AiFlags.Contains("\"pii_detected\":true"),
                 m.AiFlags.Contains("\"blocked\":true"),
-                m.SentAt
-            ))
+                m.SentAt))
             .ToListAsync(ct);
     }
     public async Task<IEnumerable<ConversationResponse>> GetInboxAsync(

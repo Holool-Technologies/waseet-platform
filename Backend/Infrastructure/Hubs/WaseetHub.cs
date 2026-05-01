@@ -53,7 +53,12 @@ public class WaseetHub : Hub
         if (string.IsNullOrWhiteSpace(content) || content.Length > 2000) return;
 
         var userId = GetUserId();
-        if (userId == Guid.Empty) { await Clients.Caller.SendAsync("Error", "Unauthorized."); return; }
+        if (userId == Guid.Empty)
+        {
+            await Clients.Caller.SendAsync("Error", "Unauthorized.");
+            return;
+        }
+
         if (!Guid.TryParse(taskId, out var taskGuid)) return;
 
         try
@@ -67,6 +72,8 @@ public class WaseetHub : Hub
                 return;
             }
 
+            // ✅ Send to ALL in group INCLUDING caller (caller deduplicates client-side)
+            // But we pass a flag so client knows it's their own message
             await Clients.Group($"task:{taskId}").SendAsync("ReceiveMessage", message);
         }
         catch (UnauthorizedAccessException)

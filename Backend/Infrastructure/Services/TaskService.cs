@@ -335,7 +335,7 @@ public class TaskService : ITaskService
     }
 
     public async Task<TaskResponse> AdminApproveTaskAsync(
-    Guid taskId, CancellationToken ct = default)
+        Guid taskId, CancellationToken ct = default)
     {
         var task = await _db.Tasks.FindAsync([taskId], ct)
             ?? throw new KeyNotFoundException("Task not found.");
@@ -345,8 +345,9 @@ public class TaskService : ITaskService
         task.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
+        // ✅ Notify the CLIENT who posted the task — NOT admin
         await _notifications.CreateAndPushAsync(
-            task.ClientUserId,
+            task.ClientUserId,  // <-- task owner
             Domain.Enums.NotificationType.TaskApproved,
             "Task Published",
             "تم نشر مهمتك",
@@ -365,22 +366,24 @@ public class TaskService : ITaskService
         var task = await _db.Tasks.FindAsync([taskId], ct)
             ?? throw new KeyNotFoundException("Task not found.");
 
-        task.ApprovalStatus = TaskApprovalStatus.Rejected;
+        task.ApprovalStatus = Domain.Enums.TaskApprovalStatus.Rejected;
         task.RejectionReason = reason;
         task.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
+        // ✅ Notify the CLIENT who posted — NOT admin
         await _notifications.CreateAndPushAsync(
-            task.ClientUserId,
-            NotificationType.TaskRejected,
+            task.ClientUserId,  // <-- task owner
+            Domain.Enums.NotificationType.TaskRejected,
             "Task Rejected",
             "تم رفض مهمتك",
             $"Your task \"{task.Title}\" was rejected. Reason: {reason}",
             $"تم رفض مهمتك \"{task.Title}\". السبب: {reason}",
             task.TaskId.ToString(),
-            "/dashboard",
+            "/my-tasks",
             ct);
         return MapTask(task, 0);
+
     }
 
     public async Task<PagedResult<TaskResponse>> GetPendingApprovalAsync(

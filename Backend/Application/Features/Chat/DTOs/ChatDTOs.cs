@@ -1,9 +1,10 @@
-namespace Application.Features.Chat.DTOs;
+﻿namespace Application.Features.Chat.DTOs;
 
 public record ChatMessageResponse(
     Guid MessageId,
     Guid TaskId,
-    string SenderRole,    // "Client" or "Freelancer" � never real identity
+    Guid SenderUserId,     // ← ADD THIS — needed for client-side isMine()
+    string SenderRole,
     string SanitizedContent,
     bool PiiDetected,
     bool Blocked,

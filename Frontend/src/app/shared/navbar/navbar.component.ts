@@ -1,5 +1,5 @@
 import { Component, inject, signal, HostListener, OnInit, computed } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { ThemeService } from '../../core/services/theme.service';
@@ -81,7 +81,7 @@ import { HubService } from '../../core/services/hub.service';
 
               <!-- Notifications bell -->
               <div class="relative">
-                <button (click)="notifOpen.update(v => !v)"
+                <button (click)="openNotifications()"
                   class="relative w-9 h-9 flex items-center justify-center rounded-xl text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
@@ -239,7 +239,7 @@ export class NavbarComponent implements OnInit {
   notifService = inject(NotificationService);
   private hub = inject(HubService);
   isAdmin = computed(() => this.auth.currentUser()?.role === 99);
-
+  router = inject(Router);
   notifOpen = signal(false);
   mobileOpen = signal(false);
   totalUnreadMessages = signal(0);
@@ -257,12 +257,22 @@ export class NavbarComponent implements OnInit {
     return email.charAt(0).toUpperCase();
   }
 
-  onNotifClick(n: any) {
-    if (!n.isRead) this.notifService.markRead(n.notificationId);
-    if (n.relatedUrl) window.location.href = n.relatedUrl;
-    this.notifOpen.set(false);
+ onNotifClick(n: any) {
+  this.notifService.markRead(n.notificationId);
+  this.notifOpen.set(false);
+  if (n.relatedUrl) this.router.navigate([n.relatedUrl]);
+}
+openNotifications() {
+  this.notifOpen.update(v => !v);
+  // Fix 9: mark all as read when opening the dropdown
+  if (!this.notifOpen()) return;
+  if (this.notifService.unreadCount() > 0) {
+    // Small delay so user sees the badge transition
+    setTimeout(() => {
+      this.notifService.markAllRead();
+    }, 800);
   }
-
+}
   @HostListener('document:keydown.escape')
   onEsc() {
     this.notifOpen.set(false);

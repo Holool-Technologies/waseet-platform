@@ -94,13 +94,14 @@ import { environment } from '../../../../../environments/environment';
             }
 
             <!-- Proposals — client view -->
-            @if (auth.isClient() && task()!.clientUserId === auth.currentUser()?.userId) {
+            @if (proposals().length > 0) {
               <div class="card p-6">
                 <h2 class="text-base font-semibold text-neutral-900 dark:text-white mb-5">
-                  Proposals
-                  <span class="text-sm font-normal text-neutral-400 ms-2">
-                    {{ proposals().length }} bid{{ proposals().length !== 1 ? 's' : '' }}
-                  </span>
+                @if (auth.isClient() && task()!.clientUserId === auth.currentUser()?.userId) {
+                 Proposals ({{ proposals().length }})
+                 } @else {
+                 Competing Bids ({{ proposals().length }} freelancer{{ proposals().length !== 1 ? 's' : '' }} have bid)
+                }
                 </h2>
 
                 @if (proposals().length === 0) {
@@ -174,15 +175,14 @@ import { environment } from '../../../../../environments/environment';
             }
 
             <!-- Submit proposal — freelancer view -->
-            @if (auth.isFreelancer() && task()!.status === 0 && task()!.approvalStatus === 'Approved') {
-              @if (hasAlreadyBid()) {
-                <div class="card p-6 text-center">
-                  <p class="text-sm text-neutral-500">✓ You have already submitted a proposal for this task.</p>
-                  <a [routerLink]="['/chat', task()!.taskId]" class="btn-primary btn-sm mt-3 inline-flex">
-                    Open Chat
-                  </a>
-                </div>
-              } @else {
+            @if (auth.isFreelancer()
+                && (task()!.status === 0 || task()!.status === 1)
+                && task()!.approvalStatus === 'Approved') {
+               @if (hasAlreadyBid()) {
+                  <div class="card p-6 text-center">
+                     <p class="text-sm text-neutral-500">✓ You have already submitted a proposal.</p>
+                 </div>
+                } @else {
                 <div class="card p-6">
                   <h2 class="text-base font-semibold text-neutral-900 dark:text-white mb-5">
                     Submit a Proposal
@@ -336,31 +336,41 @@ export class TaskDetailComponent implements OnInit {
   });
 
   ngOnInit() {
-    const code = this.route.snapshot.paramMap.get('code')!;
-    this.taskService.getByCode(code).subscribe({
-      next: t => {
-        this.task.set(t);
-        this.loading.set(false);
+  const code = this.route.snapshot.paramMap.get('code')!;
+  this.taskService.getByCode(code).subscribe({
+    next: t => {
+      this.task.set(t);
+      this.loading.set(false);
+      this.loadProposals(code);
 
-        if (this.auth.isClient() && t.clientUserId === this.auth.currentUser()?.userId) {
-          this.taskService.getProposals(code).subscribe(p => this.proposals.set(p));
-          this.escrowService.getByTask(code).subscribe({
-            next: e => this.escrow.set(e),
-            error: () => {}
-          });
-        }
+      // Load escrow if client and task owner
+      if (this.auth.isClient()
+          && t.clientUserId === this.auth.currentUser()?.userId
+          && t.status >= 2) {
+        this.escrowService.getByTask(code).subscribe({
+          next: e => this.escrow.set(e),
+          error: () => {}
+        });
+      }
+    },
+    error: () => this.loading.set(false)
+  });
+}
 
-        if (this.auth.isFreelancer()) {
-          const userId = this.auth.currentUser()?.userId;
-          this.taskService.getProposals(code).subscribe(proposals => {
-            const mine = proposals.find((p: Proposal) => p.freelancerUserId === userId);
-            this.hasAlreadyBid.set(!!mine);
-          });
-        }
-      },
-      error: () => this.loading.set(false)
-    });
-  }
+private loadProposals(code: string) {
+  const userId = this.auth.currentUser()?.userId;
+  this.taskService.getProposals(code).subscribe({
+    next: (proposals: Proposal[]) => {
+      this.proposals.set(proposals);
+      // Fix 1+3: check if current freelancer already bid
+      if (this.auth.isFreelancer() && userId) {
+        const mine = proposals.find(p => p.freelancerUserId === userId);
+        this.hasAlreadyBid.set(!!mine);
+      }
+    },
+    error: () => {}
+  });
+}
 
   viewBidderProfile(proposal: Proposal, index: number) {
     const alias = `Bidder-${index + 1}`;
@@ -382,31 +392,41 @@ export class TaskDetailComponent implements OnInit {
   }
 
   chatWithBidder(proposal: Proposal) {
-    // Open conversation between client and this bidder
-    this.http.post(`${environment.apiUrl}/chat/conversation/open`, {
-      taskId: this.task()!.taskId,
-      freelancerUserId: proposal.freelancerUserId
-    }).subscribe({
-      next: () => this.router.navigate(['/chat', this.task()!.taskId], {
-        queryParams: { bidder: proposal.freelancerUserId }
-      }),
-      error: () => this.toast.error('Could not open chat')
-    });
-  }
+  this.http.post(`${environment.apiUrl}/chat/conversation/open`, {
+    taskId: this.task()!.taskId,
+    freelancerUserId: proposal.freelancerUserId
+  }).subscribe({
+    next: () => {
+      // Navigate to inbox with this conversation pre-selected via query param
+      this.router.navigate(['/chat/inbox'], {
+        queryParams: {
+          taskId:      this.task()!.taskId,
+          freelancer:  proposal.freelancerUserId
+        }
+      });
+    },
+    error: () => this.toast.error('Could not open chat')
+  });
+}
 
-  chatFromModal() {
-    const v = this.viewingProfile();
-    if (!v) return;
-    this.viewingProfile.set(null);
-    this.http.post(`${environment.apiUrl}/chat/conversation/open`, {
-      taskId: this.task()!.taskId,
-      freelancerUserId: v.freelancerUserId
-    }).subscribe({
-      next: () => this.router.navigate(['/chat', this.task()!.taskId], {
-        queryParams: { bidder: v.freelancerUserId }
-      })
-    });
-  }
+chatFromModal() {
+  const v = this.viewingProfile();
+  if (!v) return;
+  this.viewingProfile.set(null);
+  this.http.post(`${environment.apiUrl}/chat/conversation/open`, {
+    taskId: this.task()!.taskId,
+    freelancerUserId: v.freelancerUserId
+  }).subscribe({
+    next: () => {
+      this.router.navigate(['/chat/inbox'], {
+        queryParams: {
+          taskId:     this.task()!.taskId,
+          freelancer: v.freelancerUserId
+        }
+      });
+    }
+  });
+}
 
   award(proposal: Proposal) {
     if (!confirm('Award this task to Bidder? This cannot be undone.')) return;
@@ -423,23 +443,26 @@ export class TaskDetailComponent implements OnInit {
     });
   }
 
-  submitProposal() {
-    if (this.proposalForm.invalid || !this.task()) return;
-    this.submittingProposal.set(true);
-    this.taskService.submitProposal(this.task()!.publicTaskCode, this.proposalForm.value as any)
-      .subscribe({
-        next: () => {
-          this.toast.success('Proposal submitted!');
-          this.hasAlreadyBid.set(true);
-          this.proposalForm.reset();
-          this.submittingProposal.set(false);
-        },
-        error: (err) => {
-          this.toast.error('Submission failed', err?.error?.message);
-          this.submittingProposal.set(false);
-        }
-      });
-  }
+submitProposal() {
+  if (this.proposalForm.invalid || !this.task()) return;
+  this.submittingProposal.set(true);
+  this.taskService.submitProposal(this.task()!.publicTaskCode, this.proposalForm.value as any)
+    .subscribe({
+      next: (newProposal: Proposal) => {
+        this.toast.success('Proposal submitted!');
+        // Fix 3: mark as bid immediately
+        this.hasAlreadyBid.set(true);
+        // Fix 4: add new proposal to list immediately — no refresh needed
+        this.proposals.update(p => [...p, newProposal]);
+        this.proposalForm.reset();
+        this.submittingProposal.set(false);
+      },
+      error: (err) => {
+        this.toast.error('Submission failed', err?.error?.message);
+        this.submittingProposal.set(false);
+      }
+    });
+}
 
   releaseEscrow() {
     if (!this.escrow()) return;

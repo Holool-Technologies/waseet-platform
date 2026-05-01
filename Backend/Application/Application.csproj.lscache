@@ -2,12 +2,10 @@ version=1
 
 # This file caches language service data to improve the performance of C# Dev Kit.
 # It is not intended for manual editing. It can safely be deleted and will be
-# regenerated automatically.
+# regenerated automatically. For more information, see https://aka.ms/lscache
 #
-# To exclude from version control, add *.lscache to your .gitignore file.
-#
-# To disable caching, add the following to your VS Code settings:
-#   "dotnet.projectsystem.enableLanguageServiceCache": false
+# To control where cache files are stored, use the following VS Code setting:
+#   "dotnet.projectsystem.cacheInProjectFolder": true
 
 [project]
 language=C#
@@ -57,6 +55,9 @@ TemporaryDependencyNodeTargetIdentifier=net9.0
 [sourceFiles]
 Class1.cs
 DependencyInjection.cs
+Features/Admin/
+ DTOs/AdminDTOs.cs
+ Interfaces/IAdminService.cs
 Features/Auth/
  DTOs/AuthDTOs.cs
  Interfaces/IAuthService.cs
@@ -66,18 +67,24 @@ Features/Chat/
 Features/Kyc/
  DTOs/KycDTOs.cs
  Interfaces/IKycService.cs
-Features/Tasks/DTOs/
- EscrowDTOs.cs
- ProposalDTOs.cs
- TaskDTOs.cs
-Features/Tasks/Interfaces/ITaskService.cs
+Features/Notifications/
+ DTOs/NotificationDTOs.cs
+ Interfaces/INotificationService.cs
+Features/
+ Profile/DTOs/ProfileDTOs.cs
+ Tasks/DTOs/
+  EscrowDTOs.cs
+  ProposalDTOs.cs
+  TaskDTOs.cs
+ Tasks/Interfaces/ITaskService.cs
 obj/Debug/net9.0/
  .NETCoreApp,Version=v9.0.AssemblyAttributes.cs
  Application.AssemblyInfo.cs
  Application.GlobalUsings.g.cs
 
 [metadataReferences]
-../../../../../Program Files/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.15/ref/net9.0/
+../Domain/obj/Debug/net9.0/ref/Domain.dll
+<DOTNET>/packs/Microsoft.NETCore.App.Ref/9.0.15/ref/net9.0/
  Microsoft.CSharp.dll
  Microsoft.VisualBasic.Core.dll
  Microsoft.VisualBasic.dll
@@ -241,7 +248,6 @@ obj/Debug/net9.0/
  System.Xml.XPath.dll
  System.Xml.XPath.XDocument.dll
  WindowsBase.dll
-../Domain/obj/Debug/net9.0/ref/Domain.dll
 <NUGET>/
  fluentvalidation.dependencyinjectionextensions/12.1.1/lib/net8.0/FluentValidation.DependencyInjectionExtensions.dll
  fluentvalidation/12.1.1/lib/net8.0/FluentValidation.dll
@@ -258,18 +264,18 @@ obj/Debug/net9.0/
  system.diagnostics.diagnosticsource/10.0.0/lib/net9.0/System.Diagnostics.DiagnosticSource.dll
 
 [analyzerReferences]
-../../../../../Program Files/dotnet/packs/Microsoft.NETCore.App.Ref/9.0.15/analyzers/dotnet/cs/
+<DOTNET>/packs/Microsoft.NETCore.App.Ref/9.0.15/analyzers/dotnet/cs/
  Microsoft.Interop.ComInterfaceGenerator.dll
  Microsoft.Interop.JavaScript.JSImportGenerator.dll
  Microsoft.Interop.LibraryImportGenerator.dll
  Microsoft.Interop.SourceGeneration.dll
  System.Text.Json.SourceGeneration.dll
  System.Text.RegularExpressions.Generator.dll
-../../../../../Program Files/dotnet/sdk/9.0.313/Sdks/Microsoft.NET.Sdk/analyzers/
+<DOTNET>/sdk/9.0.313/Sdks/Microsoft.NET.Sdk/analyzers/
  Microsoft.CodeAnalysis.CSharp.NetAnalyzers.dll
  Microsoft.CodeAnalysis.NetAnalyzers.dll
 <NUGET>/microsoft.extensions.logging.abstractions/10.0.0/analyzers/dotnet/roslyn4.4/cs/Microsoft.Extensions.Logging.Generators.dll
 
 [analyzerConfigFiles]
-../../../../../Program Files/dotnet/sdk/9.0.313/Sdks/Microsoft.NET.Sdk/analyzers/build/config/analysislevel_9_default.globalconfig
+<DOTNET>/sdk/9.0.313/Sdks/Microsoft.NET.Sdk/analyzers/build/config/analysislevel_9_default.globalconfig
 obj/Debug/net9.0/Application.GeneratedMSBuildEditorConfig.editorconfig

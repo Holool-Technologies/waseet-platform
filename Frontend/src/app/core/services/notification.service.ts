@@ -32,20 +32,30 @@ export class NotificationService {
       .subscribe(n => this.notifications.set(n));
   }
 
-  markRead(id: string) {
-    this.http.patch(`${this.base}/${id}/read`, {}).subscribe(() => {
-      this.notifications.update(ns =>
-        ns.map(n => n.notificationId === id ? { ...n, isRead: true } : n));
-      this.unreadCount.update(c => Math.max(0, c - 1));
-    });
+  markAllRead() {
+  // Fix 9: update UI immediately, then sync with server
+  this.unreadCount.set(0);
+  this.notifications.update(ns => ns.map(n => ({ ...n, isRead: true })));
+
+  this.http.patch(`${this.base}/read-all`, {}).subscribe({
+    error: () => {
+      // Reload on failure to resync
+      this.loadUnreadCount();
+    }
+  });
+}
+
+markRead(id: string) {
+  // Fix 9: update UI immediately
+  const wasUnread = this.notifications().find(n => n.notificationId === id && !n.isRead);
+  if (wasUnread) {
+    this.notifications.update(ns =>
+      ns.map(n => n.notificationId === id ? { ...n, isRead: true } : n));
+    this.unreadCount.update(c => Math.max(0, c - 1));
   }
 
-  markAllRead() {
-    this.http.patch(`${this.base}/read-all`, {}).subscribe(() => {
-      this.notifications.update(ns => ns.map(n => ({ ...n, isRead: true })));
-      this.unreadCount.set(0);
-    });
-  }
+  this.http.patch(`${this.base}/${id}/read`, {}).subscribe();
+}
 
   pushReceived(notification: AppNotification) {
     this.notifications.update(ns => [notification, ...ns]);

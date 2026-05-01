@@ -15,7 +15,7 @@ export class HubService {
   private hub: signalR.HubConnection | null = null;
 
   private messageHandlers = new Map<string, ((msg: any) => void)[]>();
-
+  private pendingMessages = new Set<string>();
   async connect() {
     if (this.hub?.state === signalR.HubConnectionState.Connected) return;
 
@@ -30,26 +30,26 @@ export class HubService {
       .build();
 
     // Global notification handler
-    this.hub.on('ReceiveNotification', (payload: any) => {
-      const isAr = this.lang.isArabic();
-      const title = isAr ? payload.titleAr : payload.titleEn;
-      const body  = isAr ? payload.bodyAr  : payload.bodyEn;
-      this.notifs.pushReceived({ ...payload, title, body });
-      this.toast.info(title, body);
-    });
+ this.hub.on('ReceiveNotification', (payload: any) => {
+  const isAr  = this.lang.isArabic();
+  const title = isAr ? payload.titleAr : payload.titleEn;
+  const body  = isAr ? payload.bodyAr  : payload.bodyEn;
 
-    // Chat message handler — delegate to registered handlers
-    this.hub.on('ReceiveMessage', (msg: any) => {
-      this.emit('ReceiveMessage', msg);
-    });
+  const notification = {
+    notificationId: payload.notificationId,
+    type:       payload.type,
+    title,
+    body,
+    relatedUrl: payload.relatedUrl,
+    isRead:     false,
+    createdAt:  payload.createdAt ?? new Date().toISOString()
+  };
 
-    this.hub.on('UserTyping', () => this.emit('UserTyping', null));
-    this.hub.on('MessageBlocked', (r: string) => this.emit('MessageBlocked', r));
-    this.hub.on('Error', (e: string) => this.emit('Error', e));
-
-    this.hub.onreconnected(() => {
-      this.toast.info('Reconnected', 'Chat connection restored.');
-    });
+  // Add to list and increment count
+  this.notifs.notifications.update(ns => [notification, ...ns]);
+  this.notifs.unreadCount.update(c => c + 1);
+  this.toast.info(title, body);
+});
 
     await this.hub.start();
     this.notifs.loadUnreadCount();
@@ -63,9 +63,13 @@ export class HubService {
     await this.hub?.invoke('LeaveTask', taskId);
   }
 
-  async sendMessage(taskId: string, content: string) {
-    await this.hub?.invoke('SendMessage', taskId, content);
-  }
+async sendMessage(taskId: string, content: string) {
+  // Generate a temp key to deduplicate
+  const tempKey = `${taskId}:${content}:${Date.now()}`;
+  this.pendingMessages.add(tempKey);
+  setTimeout(() => this.pendingMessages.delete(tempKey), 3000);
+  await this.hub?.invoke('SendMessage', taskId, content);
+}
 
   async sendTyping(taskId: string) {
     await this.hub?.invoke('Typing', taskId);

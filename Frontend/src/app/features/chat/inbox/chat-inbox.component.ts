@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
 import { ChatViewComponent } from '../chat-view/chat-view.component';
@@ -166,6 +166,7 @@ interface Conversation {
 export class ChatInboxComponent implements OnInit {
   private http   = inject(HttpClient);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   auth           = inject(AuthService);
 
   conversations  = signal<Conversation[]>([]);
@@ -184,12 +185,35 @@ export class ChatInboxComponent implements OnInit {
       c.otherPartyRole.toLowerCase().includes(this.searchQuery.toLowerCase())
     );
 
-  ngOnInit() {
-    this.http.get<Conversation[]>(`${environment.apiUrl}/chat/inbox`).subscribe({
-      next: c => { this.conversations.set(c); this.loading.set(false); },
-      error: () => this.loading.set(false)
-    });
-  }
+// Add to ChatInboxComponent:
+
+ngOnInit() {
+  this.http.get<Conversation[]>(`${environment.apiUrl}/chat/inbox`).subscribe({
+    next: c => {
+      this.conversations.set(c);
+      this.loading.set(false);
+
+      // Fix 6: auto-select conversation from query params
+      const taskId     = this.route.snapshot.queryParamMap.get('taskId');
+      const freelancer = this.route.snapshot.queryParamMap.get('freelancer');
+
+      if (taskId) {
+        const match = c.find(conv =>
+          conv.taskId === taskId &&
+          (!freelancer || conv.conversationId.includes(freelancer) ||
+            c.find(x => x.taskId === taskId))
+        );
+        if (match) this.selectConversation(match);
+        else if (c.length > 0) {
+          // Find by taskId
+          const byTask = c.find(x => x.taskId === taskId);
+          if (byTask) this.selectConversation(byTask);
+        }
+      }
+    },
+    error: () => this.loading.set(false)
+  });
+}
 
   selectConversation(conv: Conversation) {
     this.selected.set(conv);
