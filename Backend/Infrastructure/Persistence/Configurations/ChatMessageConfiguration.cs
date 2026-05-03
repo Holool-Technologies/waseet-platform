@@ -2,35 +2,22 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Domain.Entities;
 
-namespace Waseet.Infrastructure.Persistence.Configurations;
+namespace Infrastructure.Persistence.Configurations;
 
 public class ChatMessageConfiguration : IEntityTypeConfiguration<ChatMessage>
 {
     public void Configure(EntityTypeBuilder<ChatMessage> builder)
     {
         builder.HasKey(m => m.MessageId);
+        builder.Property(m => m.ConversationId).IsRequired();
+        builder.Property(m => m.SenderUserId).IsRequired();
+        builder.Property(m => m.OriginalEncrypted).HasColumnType("VARBINARY(MAX)");
+        builder.Property(m => m.SanitizedContent).HasColumnType("NVARCHAR(MAX)");
+        builder.Property(m => m.AiFlags).HasMaxLength(500).HasDefaultValue("{}");
+        builder.Property(m => m.SentAt).HasDefaultValueSql("GETUTCDATE()");
 
-        builder.Property(m => m.SenderUserId)
-            .IsRequired();
-
-        builder.Property(m => m.OriginalEncrypted)
-            .IsRequired()
-            .HasColumnType("VARBINARY(MAX)");
-
-        builder.Property(m => m.SanitizedContent)
-            .IsRequired()
-            .HasColumnType("NVARCHAR(MAX)");
-
-        builder.Property(m => m.AiFlags)
-            .IsRequired()
-            .HasMaxLength(500)
-            .HasDefaultValue("{}");
-
-        builder.Property(m => m.SentAt)
-            .IsRequired()
-            .HasDefaultValueSql("GETUTCDATE()");
-
-        // Index for fast message history retrieval per task
+        // Index for scoped conversation queries
+        builder.HasIndex(m => new { m.ConversationId, m.SentAt });
         builder.HasIndex(m => new { m.TaskId, m.SentAt });
     }
 }

@@ -13,9 +13,34 @@ public static class ChatEndpoints
             .WithOpenApi()
             .RequireAuthorization();
 
-        // Get message history for a task
-        group.MapGet("/{taskId:guid}/messages", async (
-            Guid taskId,
+        // Open or get conversation (does NOT create until first message)
+        group.MapPost("/conversation/open", async (
+            OpenConversationRequest request,
+            IChatService chatService,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var userId = GetUserId(user);
+            try
+            {
+                var result = await chatService.OpenConversationAsync(
+                    userId, request.TaskId, request.FreelancerUserId, ct);
+                return Results.Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Results.Forbid();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { message = ex.Message });
+            }
+        });
+
+        // Get message history for a conversation
+        // Fix 9: checks conversation party not task party
+        group.MapGet("/conversation/{conversationId:guid}/messages", async (
+            Guid conversationId,
             IChatService chatService,
             ClaimsPrincipal user,
             int page,
@@ -26,7 +51,10 @@ public static class ChatEndpoints
             try
             {
                 var messages = await chatService.GetHistoryAsync(
-                    taskId, userId, page, pageSize, ct);
+                    conversationId, userId,
+                    page <= 0 ? 1 : page,
+                    pageSize <= 0 ? 50 : pageSize,
+                    ct);
                 return Results.Ok(messages);
             }
             catch (UnauthorizedAccessException)
@@ -39,46 +67,19 @@ public static class ChatEndpoints
             }
         });
 
+        // Inbox — only conversations with messages
         group.MapGet("/inbox", async (
-    IChatService chatService,
-    ClaimsPrincipal user, CancellationToken ct) =>
+            IChatService chatService,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
         {
             var userId = GetUserId(user);
             var inbox = await chatService.GetInboxAsync(userId, ct);
             return Results.Ok(inbox);
-        });
-
-        // Open or get conversation between client and a specific bidder
-        group.MapPost("/conversation/open", async (
-            OpenConversationRequest request,
-            IChatService chatService,
-            ClaimsPrincipal user,
-            CancellationToken ct) =>
-        {
-            var userId = GetUserId(user);
-            await chatService.EnsureConversationAsync(
-                request.TaskId, userId, request.FreelancerUserId, ct);
-            return Results.Ok(new { taskId = request.TaskId });
-        });
-
-        // Get messages for a specific conversation (by taskId + the other party)
-        group.MapGet("/conversation/{taskId:guid}", async (
-            Guid taskId,
-            IChatService chatService,
-            ClaimsPrincipal user,
-            int page, int pageSize,
-            CancellationToken ct) =>
-        {
-            var userId = GetUserId(user);
-            var messages = await chatService.GetHistoryAsync(taskId, userId, page, pageSize, ct);
-            return Results.Ok(messages);
         });
     }
 
     private static Guid GetUserId(ClaimsPrincipal user) =>
         Guid.Parse(user.FindFirstValue("sub")
             ?? user.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-
 }
-

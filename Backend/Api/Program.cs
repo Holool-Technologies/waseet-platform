@@ -63,7 +63,11 @@ builder.Services.AddSignalR(options =>
     options.KeepAliveInterval = TimeSpan.FromSeconds(15);
 });
 
-
+// Fix timezone: serialize DateTime as UTC ISO 8601
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new UtcDateTimeConverter());
+});
 var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
@@ -90,7 +94,7 @@ app.MapKycEndpoints();
 app.MapAdminEndpoints();
 app.MapProfileEndpoints();
 app.MapNotificationEndpoints();
-
+app.MapFileEndpoints();
 // Replace old ChatHub with unified hub:
 app.MapHub<WaseetHub>("/hubs/waseet");
 //app.MapHub<ChatHub>("/hubs/chat");

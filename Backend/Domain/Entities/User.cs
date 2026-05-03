@@ -10,7 +10,7 @@ public class User
     public UserRole Role { get; set; }
     public KycStatus KycStatus { get; set; } = KycStatus.Pending;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
+    public bool IsVerified => KycStatus == KycStatus.Approved;
     public KycRecord? KycRecord { get; set; }
 
     public ICollection<RefreshToken> RefreshTokens { get; set; } = [];

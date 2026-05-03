@@ -133,42 +133,49 @@ export class LoginComponent {
   });
 
   submit() {
-    if (this.form.invalid) return;
-    this.clearErrors();
-    this.loading.set(true);
+  if (this.form.invalid) return;
+  this.clearErrors();
+  this.loading.set(true);
 
-    this.auth.login(this.form.value as any)
-      .pipe(finalize(() => this.loading.set(false)))
-      .subscribe({
-        next: () => this.router.navigate(['/dashboard']),
-        error: (err) => {
-          const code = err?.error?.code;
-          if (code === 'EMAIL_NOT_FOUND') {
-            this.emailError.set('No account found with this email.');
-          } else if (code === 'WRONG_PASSWORD') {
-            this.passwordError.set('Incorrect password. Please try again.');
-          } else {
-            this.generalError.set('Login failed. Please try again.');
-          }
-        }
-      });
-  }
+  this.auth.login(this.form.value as any).subscribe({
+    next: (res) => {
+      // Fix 5: redirect based on role
+      const role = this.auth.currentUser()?.role;
+      if (role === 99) {
+        this.router.navigate(['/admin/dashboard']);
+      } else {
+        this.router.navigate(['/dashboard']);
+      }
+    },
+    error: (err) => {
+      this.loading.set(false);
+      const code = err?.error?.code;
+      if (code === 'EMAIL_NOT_FOUND') {
+        this.emailError.set('No account found with this email.');
+      } else if (code === 'WRONG_PASSWORD') {
+        this.passwordError.set('Incorrect password. Please try again.');
+      } else {
+        this.generalError.set('Login failed. Please try again.');
+      }
+    }
+  });
+}
 
-  googleLogin() {
-    this.googleLoading.set(true);
-    this.socialAuth.signIn(GoogleLoginProvider.PROVIDER_ID).then(user => {
-      this.auth.googleLogin(user.idToken!).subscribe({
-        next: () => this.router.navigate(['/dashboard']),
-        error: () => {
-          this.generalError.set('Google sign-in failed.');
-          this.googleLoading.set(false);
-        }
-      });
-    }).catch(() => {
-      this.generalError.set('Google sign-in was cancelled.');
-      this.googleLoading.set(false);
+googleLogin() {
+  this.googleLoading.set(true);
+  this.socialAuth.signIn(GoogleLoginProvider.PROVIDER_ID).then(user => {
+    this.auth.googleLogin(user.idToken!).subscribe({
+      next: () => {
+        const role = this.auth.currentUser()?.role;
+        this.router.navigate([role === 99 ? '/admin/dashboard' : '/dashboard']);
+      },
+      error: () => {
+        this.generalError.set('Google sign-in failed.');
+        this.googleLoading.set(false);
+      }
     });
-  }
+  });
+}
 
   private clearErrors() {
     this.emailError.set('');

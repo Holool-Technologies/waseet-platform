@@ -12,12 +12,27 @@ export class HubService {
   private notifs = inject(NotificationService);
   private toast  = inject(ToastService);
   private lang   = inject(LangService);
-  private hub: signalR.HubConnection | null = null;
 
-  private messageHandlers = new Map<string, ((msg: any) => void)[]>();
-  private pendingMessages = new Set<string>();
-  async connect() {
+  private hub: signalR.HubConnection | null = null;
+  private handlers = new Map<string, Set<(data: any) => void>>();
+  private connecting = false;
+
+  async connect(): Promise<void> {
     if (this.hub?.state === signalR.HubConnectionState.Connected) return;
+    if (this.connecting) {
+      // Wait for ongoing connection
+      await new Promise<void>(resolve => {
+        const check = setInterval(() => {
+          if (this.hub?.state === signalR.HubConnectionState.Connected) {
+            clearInterval(check); resolve();
+          }
+        }, 100);
+        setTimeout(() => { clearInterval(check); resolve(); }, 10000);
+      });
+      return;
+    }
+
+    this.connecting = true;
 
     this.hub = new signalR.HubConnectionBuilder()
       .withUrl(`${environment.hubUrl}/hubs/waseet`, {
@@ -29,65 +44,84 @@ export class HubService {
       .configureLogging(signalR.LogLevel.Warning)
       .build();
 
-    // Global notification handler
- this.hub.on('ReceiveNotification', (payload: any) => {
-  const isAr  = this.lang.isArabic();
-  const title = isAr ? payload.titleAr : payload.titleEn;
-  const body  = isAr ? payload.bodyAr  : payload.bodyEn;
+    // Notifications
+    this.hub.on('ReceiveNotification', (payload: any) => {
+      const isAr  = this.lang.isArabic();
+      const title = isAr ? payload.titleAr : payload.titleEn;
+      const body  = isAr ? payload.bodyAr  : payload.bodyEn;
+      this.notifs.notifications.update(ns => [{
+        notificationId: payload.notificationId,
+        type: payload.type, title, body,
+        relatedUrl: payload.relatedUrl,
+        isRead: false,
+        createdAt: payload.createdAt ?? new Date().toISOString()
+      }, ...ns]);
+      this.notifs.unreadCount.update(c => c + 1);
+      this.toast.info(title, body);
+    });
 
-  const notification = {
-    notificationId: payload.notificationId,
-    type:       payload.type,
-    title,
-    body,
-    relatedUrl: payload.relatedUrl,
-    isRead:     false,
-    createdAt:  payload.createdAt ?? new Date().toISOString()
-  };
+    // Chat — delegate to registered handlers
+    this.hub.on('ReceiveMessage', (msg: any) => this.emit('ReceiveMessage', msg));
+    this.hub.on('UserTyping',     (id: any)  => this.emit('UserTyping', id));
+    this.hub.on('MessageBlocked', (r: any)   => this.emit('MessageBlocked', r));
+    this.hub.on('Error',          (e: any)   => this.emit('Error', e));
 
-  // Add to list and increment count
-  this.notifs.notifications.update(ns => [notification, ...ns]);
-  this.notifs.unreadCount.update(c => c + 1);
-  this.toast.info(title, body);
-});
+    this.hub.onreconnected(async () => {
+      this.toast.info('Reconnected', 'Connection restored.');
+    });
 
-    await this.hub.start();
-    this.notifs.loadUnreadCount();
+    try {
+      await this.hub.start();
+      this.notifs.loadUnreadCount();
+    } finally {
+      this.connecting = false;
+    }
   }
 
-  async joinTask(taskId: string) {
-    await this.hub?.invoke('JoinTask', taskId);
+  // ── Conversation-scoped methods ──────────────────────────────
+  async joinConversation(conversationId: string) {
+    await this.ensureConnected();
+    await this.hub?.invoke('JoinConversation', conversationId);
   }
 
-  async leaveTask(taskId: string) {
-    await this.hub?.invoke('LeaveTask', taskId);
+  async leaveConversation(conversationId: string) {
+    if (this.hub?.state === signalR.HubConnectionState.Connected)
+      await this.hub.invoke('LeaveConversation', conversationId);
   }
 
-async sendMessage(taskId: string, content: string) {
-  // Generate a temp key to deduplicate
-  const tempKey = `${taskId}:${content}:${Date.now()}`;
-  this.pendingMessages.add(tempKey);
-  setTimeout(() => this.pendingMessages.delete(tempKey), 3000);
-  await this.hub?.invoke('SendMessage', taskId, content);
-}
-
-  async sendTyping(taskId: string) {
-    await this.hub?.invoke('Typing', taskId);
+  async sendMessage(conversationId: string, content: string) {
+    await this.ensureConnected();
+    await this.hub?.invoke('SendMessage', conversationId, content);
   }
 
+  async sendFirstMessage(taskId: string, freelancerId: string, content: string) {
+    await this.ensureConnected();
+    await this.hub?.invoke('SendFirstMessage', taskId, freelancerId, content);
+  }
+
+  async sendTyping(conversationId: string) {
+    if (this.hub?.state === signalR.HubConnectionState.Connected)
+      await this.hub.invoke('Typing', conversationId);
+  }
+
+  // ── Event bus ───────────────────────────────────────────────
   on(event: string, handler: (data: any) => void) {
-    if (!this.messageHandlers.has(event))
-      this.messageHandlers.set(event, []);
-    this.messageHandlers.get(event)!.push(handler);
+    if (!this.handlers.has(event))
+      this.handlers.set(event, new Set());
+    this.handlers.get(event)!.add(handler);
   }
 
   off(event: string, handler: (data: any) => void) {
-    const handlers = this.messageHandlers.get(event) ?? [];
-    this.messageHandlers.set(event, handlers.filter(h => h !== handler));
+    this.handlers.get(event)?.delete(handler);
   }
 
   private emit(event: string, data: any) {
-    (this.messageHandlers.get(event) ?? []).forEach(h => h(data));
+    this.handlers.get(event)?.forEach(h => h(data));
+  }
+
+  private async ensureConnected() {
+    if (this.hub?.state !== signalR.HubConnectionState.Connected)
+      await this.connect();
   }
 
   disconnect() { this.hub?.stop(); }

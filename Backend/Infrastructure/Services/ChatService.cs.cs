@@ -25,31 +25,102 @@ public class ChatService : IChatService
         _encryption = encryption;
     }
 
-    public async Task<ChatMessageResponse> ProcessAndSaveAsync(
-        Guid senderUserId, Guid taskId,
-        string rawContent, CancellationToken ct = default)
+    /// <summary>
+    /// Opens or retrieves an existing conversation between client and a specific bidder.
+    /// Does NOT create if it already exists.
+    /// </summary>
+    public async Task<OpenConversationResponse> OpenConversationAsync(
+        Guid clientUserId,
+        Guid taskId,
+        Guid freelancerUserId,
+        CancellationToken ct = default)
     {
+        // Verify the freelancer has actually bid on this task
         var task = await _db.Tasks
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.TaskId == taskId, ct)
             ?? throw new KeyNotFoundException("Task not found.");
 
-        // Check sender is client OR any bidder on this task
-        bool isClient = task.ClientUserId == senderUserId;
-        bool isFreelancer = task.FreelancerUserId == senderUserId;
-        bool isBidder = await _db.Proposals
-            .AnyAsync(p => p.TaskId == taskId
-                        && p.FreelancerUserId == senderUserId, ct);
+        if (task.ClientUserId != clientUserId)
+            throw new UnauthorizedAccessException("Only the task client can open conversations.");
 
-        if (!isClient && !isFreelancer && !isBidder)
-            throw new UnauthorizedAccessException("You are not a party to this task.");
+        bool hasBid = await _db.Proposals
+            .AnyAsync(p => p.TaskId == taskId
+                        && p.FreelancerUserId == freelancerUserId, ct);
+
+        if (!hasBid && task.FreelancerUserId != freelancerUserId)
+            throw new InvalidOperationException("Can only message bidders on this task.");
+
+        // Find existing or prepare to create lazily
+        var existing = await _db.ChatConversations
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c =>
+                c.TaskId == taskId &&
+                c.ClientUserId == clientUserId &&
+                c.FreelancerUserId == freelancerUserId, ct);
+
+        // Get anonymous alias
+        var proposals = await _db.Proposals
+            .AsNoTracking()
+            .Where(p => p.TaskId == taskId)
+            .OrderBy(p => p.SubmittedAt)
+            .Select(p => p.FreelancerUserId)
+            .ToListAsync(ct);
+
+        var idx = proposals.IndexOf(freelancerUserId);
+        var alias = idx >= 0 ? $"Bidder-{idx + 1}" : "Freelancer";
+
+        var convId = existing?.ConversationId ?? Guid.NewGuid();
+
+        if (existing is null)
+        {
+            // Store pending ConversationId in memory — created on first message
+            // Return the ID so frontend can open the chat room
+            // We use a deterministic ID so we don't create orphaned rows
+            convId = DeterministicGuid(taskId, clientUserId, freelancerUserId);
+        }
+
+        return new OpenConversationResponse(
+            convId, taskId, task.PublicTaskCode, alias);
+    }
+
+    /// <summary>
+    /// Creates conversation row on first message (lazy creation).
+    /// </summary>
+    public async Task<ChatMessageResponse> ProcessAndSaveAsync(
+        Guid senderUserId,
+        Guid conversationId,
+        string rawContent,
+        CancellationToken ct = default)
+    {
+        // Try to find existing conversation
+        var conv = await _db.ChatConversations
+            .Include(c => c.Task)
+            .FirstOrDefaultAsync(c => c.ConversationId == conversationId, ct);
+
+        if (conv is null)
+        {
+            // Conversation doesn't exist yet — this is the first message
+            // We need to reconstruct from the deterministic ID
+            // The frontend must pass taskId + freelancerId for first message
+            throw new KeyNotFoundException(
+                "Conversation not found. It may not have been initialized.");
+        }
+
+        // Verify sender is client or the specific freelancer of THIS conversation
+        bool isClient = conv.ClientUserId == senderUserId;
+        bool isFreelancer = conv.FreelancerUserId == senderUserId;
+
+        if (!isClient && !isFreelancer)
+            throw new UnauthorizedAccessException(
+                "You are not a party to this conversation.");
 
         var senderRole = isClient ? "Client" : "Freelancer";
 
         var sanitized = await _sanitizer.SanitizeAsync(rawContent, ct);
         var encryptedOriginal = _encryption.Encrypt(rawContent);
 
-        var aiFlags = System.Text.Json.JsonSerializer.Serialize(new
+        var aiFlags = JsonSerializer.Serialize(new
         {
             pii_detected = sanitized.PiiDetected,
             blocked = sanitized.Blocked,
@@ -58,59 +129,48 @@ public class ChatService : IChatService
 
         var message = new ChatMessage
         {
-            TaskId = taskId,
+            TaskId = conv.TaskId,
+            ConversationId = conversationId,   // scope to conversation
             SenderUserId = senderUserId,
             OriginalEncrypted = encryptedOriginal,
-            SanitizedContent = sanitized.Blocked ? "[Message blocked]" : sanitized.SanitizedContent,
+            SanitizedContent = sanitized.Blocked
+                ? "[Message blocked]"
+                : sanitized.SanitizedContent,
             AiFlags = aiFlags
         };
 
         _db.ChatMessages.Add(message);
 
-        // Update or create conversation
-        var conv = await _db.ChatConversations
-            .FirstOrDefaultAsync(c => c.TaskId == taskId
-                && ((c.ClientUserId == task.ClientUserId && c.FreelancerUserId == senderUserId)
-                 || (c.ClientUserId == senderUserId && c.FreelancerUserId == task.ClientUserId)
-                 || (c.FreelancerUserId == senderUserId)), ct);
+        // Update conversation last message + unread
+        conv.LastMessage = message.SanitizedContent[..Math.Min(100, message.SanitizedContent.Length)];
+        conv.LastMessageAt = DateTime.UtcNow;
+        conv.HasMessages = true;
 
-        if (conv is null && isBidder)
-        {
-            conv = new ChatConversation
-            {
-                TaskId = taskId,
-                ClientUserId = task.ClientUserId,
-                FreelancerUserId = senderUserId
-            };
-            _db.ChatConversations.Add(conv);
-        }
-
-        if (conv is not null)
-        {
-            conv.LastMessage = sanitized.SanitizedContent[..Math.Min(100, sanitized.SanitizedContent.Length)];
-            conv.LastMessageAt = DateTime.UtcNow;
-            if (isClient) conv.FreelancerUnreadCount++;
-            else conv.ClientUnreadCount++;
-        }
+        if (isClient) conv.FreelancerUnreadCount++;
+        else conv.ClientUnreadCount++;
 
         await _db.SaveChangesAsync(ct);
 
         return new ChatMessageResponse(
-        message.MessageId,
-        message.TaskId,
-        message.SenderUserId,   // ← ADD
-        senderRole,
-        message.SanitizedContent,
-        sanitized.PiiDetected,
-        sanitized.Blocked,
-        message.SentAt);
+            message.MessageId,
+            conv.TaskId,
+            conversationId,
+            message.SenderUserId,
+            senderRole,
+            message.SanitizedContent,
+            sanitized.PiiDetected,
+            sanitized.Blocked,
+            message.SentAt);
     }
 
-    public async Task<IEnumerable<ChatMessageResponse>> GetHistoryAsync(
+    /// <summary>
+    /// Creates conversation lazily on first message.
+    /// </summary>
+    public async Task<ChatMessageResponse> ProcessFirstMessageAsync(
+        Guid senderUserId,
         Guid taskId,
-        Guid requestingUserId,
-        int page = 1,
-        int pageSize = 50,
+        Guid freelancerUserId,
+        string rawContent,
         CancellationToken ct = default)
     {
         var task = await _db.Tasks
@@ -118,35 +178,98 @@ public class ChatService : IChatService
             .FirstOrDefaultAsync(t => t.TaskId == taskId, ct)
             ?? throw new KeyNotFoundException("Task not found.");
 
-        var isParty = task.ClientUserId == requestingUserId
-                   || task.FreelancerUserId == requestingUserId;
+        // Determine roles
+        Guid clientId, flId;
+        if (task.ClientUserId == senderUserId)
+        {
+            clientId = senderUserId;
+            flId = freelancerUserId;
+        }
+        else
+        {
+            clientId = task.ClientUserId;
+            flId = senderUserId;
+        }
+
+        // Create conversation if not exists
+        var convId = DeterministicGuid(taskId, clientId, flId);
+        var conv = await _db.ChatConversations
+            .FirstOrDefaultAsync(c => c.ConversationId == convId, ct);
+
+        if (conv is null)
+        {
+            conv = new ChatConversation
+            {
+                ConversationId = convId,
+                TaskId = taskId,
+                ClientUserId = clientId,
+                FreelancerUserId = flId,
+                HasMessages = false
+            };
+            _db.ChatConversations.Add(conv);
+            await _db.SaveChangesAsync(ct);
+        }
+
+        return await ProcessAndSaveAsync(senderUserId, convId, rawContent, ct);
+    }
+
+    /// <summary>
+    /// Get message history scoped to ONE conversation (client + specific bidder).
+    /// Fix 9: check conversation party, not task party.
+    /// </summary>
+    public async Task<IEnumerable<ChatMessageResponse>> GetHistoryAsync(
+        Guid conversationId,
+        Guid requestingUserId,
+        int page = 1,
+        int pageSize = 50,
+        CancellationToken ct = default)
+    {
+        var conv = await _db.ChatConversations
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.ConversationId == conversationId, ct)
+            ?? throw new KeyNotFoundException("Conversation not found.");
+
+        // Fix 9: check THIS conversation's parties
+        bool isParty = conv.ClientUserId == requestingUserId
+                    || conv.FreelancerUserId == requestingUserId;
+
         if (!isParty)
-            throw new UnauthorizedAccessException("Not authorized to view this chat.");
+            throw new UnauthorizedAccessException(
+                "You are not a party to this conversation.");
 
         return await _db.ChatMessages
             .AsNoTracking()
-            .Where(m => m.TaskId == taskId)
+            .Where(m => m.ConversationId == conversationId)  // scoped!
             .OrderBy(m => m.SentAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(m => new ChatMessageResponse(
                 m.MessageId,
                 m.TaskId,
-                m.SenderUserId,         // ← ADD
-                task.ClientUserId == m.SenderUserId ? "Client" : "Freelancer",
+                conversationId,
+                m.SenderUserId,
+                conv.ClientUserId == m.SenderUserId ? "Client" : "Freelancer",
                 m.SanitizedContent,
                 m.AiFlags.Contains("\"pii_detected\":true"),
                 m.AiFlags.Contains("\"blocked\":true"),
                 m.SentAt))
             .ToListAsync(ct);
     }
+
+    /// <summary>
+    /// Inbox — only shows conversations that have at least one message.
+    /// Fix 7: no empty conversations in sidebar.
+    /// </summary>
     public async Task<IEnumerable<ConversationResponse>> GetInboxAsync(
-        Guid userId, CancellationToken ct = default)
+        Guid userId,
+        CancellationToken ct = default)
     {
         var convs = await _db.ChatConversations
             .Include(c => c.Task)
             .AsNoTracking()
-            .Where(c => c.ClientUserId == userId || c.FreelancerUserId == userId)
+            .Where(c =>
+                (c.ClientUserId == userId || c.FreelancerUserId == userId)
+                && c.HasMessages)  // Fix 7: only show if has messages
             .OrderByDescending(c => c.LastMessageAt)
             .ToListAsync(ct);
 
@@ -154,16 +277,12 @@ public class ChatService : IChatService
 
         foreach (var c in convs)
         {
-            // Determine the other party
-            var otherUserId = c.ClientUserId == userId
-                ? c.FreelancerUserId
-                : c.ClientUserId;
+            var isClient = c.ClientUserId == userId;
+            var otherUserId = isClient ? c.FreelancerUserId : c.ClientUserId;
 
-            // Get anonymous alias
             string alias;
-            if (c.ClientUserId == userId)
+            if (isClient)
             {
-                // Viewer is client — show bidder alias
                 var proposals = await _db.Proposals
                     .AsNoTracking()
                     .Where(p => p.TaskId == c.TaskId)
@@ -175,13 +294,8 @@ public class ChatService : IChatService
             }
             else
             {
-                // Viewer is freelancer — other party is always "Client"
                 alias = "Client";
             }
-
-            var unread = c.ClientUserId == userId
-                ? c.ClientUnreadCount
-                : c.FreelancerUnreadCount;
 
             result.Add(new ConversationResponse(
                 c.ConversationId, c.TaskId,
@@ -190,29 +304,38 @@ public class ChatService : IChatService
                 alias,
                 c.LastMessage,
                 c.LastMessageAt,
-                unread));
+                isClient ? c.ClientUnreadCount : c.FreelancerUnreadCount));
         }
 
         return result;
     }
 
     public async Task EnsureConversationAsync(
-        Guid taskId, Guid clientId, Guid freelancerId, CancellationToken ct = default)
+        Guid taskId, Guid clientId,
+        Guid freelancerId, CancellationToken ct = default)
     {
-        var exists = await _db.ChatConversations
-            .AnyAsync(c => c.TaskId == taskId
-                        && c.ClientUserId == clientId
-                        && c.FreelancerUserId == freelancerId, ct);
+        // Just validate — don't create until first message
+        var task = await _db.Tasks.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.TaskId == taskId, ct)
+            ?? throw new KeyNotFoundException("Task not found.");
 
-        if (!exists)
-        {
-            _db.ChatConversations.Add(new ChatConversation
-            {
-                TaskId = taskId,
-                ClientUserId = clientId,
-                FreelancerUserId = freelancerId
-            });
-            await _db.SaveChangesAsync(ct);
-        }
+        if (task.ClientUserId != clientId)
+            throw new UnauthorizedAccessException("Only the client can initiate conversations.");
+
+        bool hasBid = await _db.Proposals
+            .AnyAsync(p => p.TaskId == taskId
+                        && p.FreelancerUserId == freelancerId, ct);
+
+        if (!hasBid && task.FreelancerUserId != freelancerId)
+            throw new InvalidOperationException("Freelancer has not bid on this task.");
+    }
+
+    // Deterministic GUID from three GUIDs — same input always produces same output
+    private static Guid DeterministicGuid(Guid taskId, Guid clientId, Guid freelancerId)
+    {
+        var combined = $"{taskId}:{clientId}:{freelancerId}";
+        using var md5 = System.Security.Cryptography.MD5.Create();
+        var hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(combined));
+        return new Guid(hash);
     }
 }

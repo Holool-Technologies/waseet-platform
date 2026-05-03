@@ -29,10 +29,11 @@ export interface Proposal {
   proposalId: string;
   taskId: string;
   freelancerUserId: string;
-  coverLetter: string;        // empty string for anonymized freelancer view
+  coverLetter: string;
   bidAmount: number;
   status: number;
   statusLabel: string;
+  freelancerIsVerified: boolean;   // NEW
   submittedAt: string;
 }
 

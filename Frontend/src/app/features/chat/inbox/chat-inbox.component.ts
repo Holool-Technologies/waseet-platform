@@ -153,11 +153,35 @@ interface Conversation {
           </div>
 
           <!-- Embed the chat component -->
-          <app-chat-view
-            [taskId]="selected()!.taskId"
-            class="flex-1 overflow-hidden">
-          </app-chat-view>
-        }
+          @if (selected()) {
+  <!-- existing chat header + ChatViewComponent -->
+  <app-chat-view
+    [conversationId]="selected()!.conversationId"
+    class="flex-1 overflow-hidden flex flex-col">
+  </app-chat-view>
+} @else if (newConversation()) {
+  <!-- New conversation — first message -->
+  <div class="flex flex-col h-full">
+    <div class="flex items-center gap-3 px-4 py-3 bg-white dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800">
+      <button (click)="newConversation.set(null)" class="md:hidden btn-ghost btn-sm p-2">←</button>
+      <div class="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-600 flex items-center justify-center font-bold text-sm">
+        {{ newConversation()!.alias.charAt(0) }}
+      </div>
+      <div>
+        <p class="font-semibold text-neutral-900 dark:text-white text-sm">{{ newConversation()!.alias }}</p>
+        <p class="text-xs text-neutral-400">New conversation</p>
+      </div>
+    </div>
+    <app-chat-view
+      [conversationId]="newConversation()!.conversationId"
+      [taskId]="newConversation()!.taskId"
+      [freelancerUserId]="newConversation()!.freelancerUserId"
+      [isFirstMessage]="true"
+      class="flex-1 overflow-hidden flex flex-col">
+    </app-chat-view>
+  </div>
+}
+      }
       </div>
 
     </div>
@@ -173,7 +197,12 @@ export class ChatInboxComponent implements OnInit {
   selected       = signal<Conversation | null>(null);
   loading        = signal(true);
   searchQuery    = '';
-
+ newConversation = signal<{
+  conversationId: string;
+  taskId: string;
+  freelancerUserId: string;
+  alias: string;
+} | null>(null);
   totalUnread = () =>
     this.conversations().reduce((acc, c) => acc + c.unreadCount, 0);
 
@@ -193,21 +222,27 @@ ngOnInit() {
       this.conversations.set(c);
       this.loading.set(false);
 
-      // Fix 6: auto-select conversation from query params
-      const taskId     = this.route.snapshot.queryParamMap.get('taskId');
-      const freelancer = this.route.snapshot.queryParamMap.get('freelancer');
+      const convId = this.route.snapshot.queryParamMap.get('conversationId');
+      if (convId) {
+        const match = c.find(x => x.conversationId === convId);
+        if (match) {
+          this.selectConversation(match);
+        } else {
+          // Conversation exists but has no messages yet — show empty chat
+          // Get conversation details from query params
+          const taskId     = this.route.snapshot.queryParamMap.get('taskId');
+          const freelancer = this.route.snapshot.queryParamMap.get('freelancer');
+          const alias      = this.route.snapshot.queryParamMap.get('alias') ?? 'Bidder';
 
-      if (taskId) {
-        const match = c.find(conv =>
-          conv.taskId === taskId &&
-          (!freelancer || conv.conversationId.includes(freelancer) ||
-            c.find(x => x.taskId === taskId))
-        );
-        if (match) this.selectConversation(match);
-        else if (c.length > 0) {
-          // Find by taskId
-          const byTask = c.find(x => x.taskId === taskId);
-          if (byTask) this.selectConversation(byTask);
+          if (taskId && freelancer) {
+            // Show new conversation UI
+            this.newConversation.set({
+              conversationId: convId,
+              taskId,
+              freelancerUserId: freelancer,
+              alias
+            });
+          }
         }
       }
     },

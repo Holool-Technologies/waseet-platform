@@ -58,6 +58,7 @@ Endpoints/
  AuthEndpoints.cs
  ChatEndpoints.cs
  EscrowEndpoints.cs
+ FileEndpoints.cs
  KycEndpoints.cs
  NotificationEndpoints.cs
  ProfileEndpoints.cs

@@ -67,6 +67,8 @@ Migrations/
  20260422234527_AddAdminSeed.Designer.cs
  20260429211058_ProfilePortfolioNotificationsConversations.cs
  20260429211058_ProfilePortfolioNotificationsConversations.Designer.cs
+ 20260502224346_ConversationScoping_KycDoc_DateFix.cs
+ 20260502224346_ConversationScoping_KycDoc_DateFix.Designer.cs
  WaseetDbContextModelSnapshot.cs
 obj/Debug/net9.0/
  .NETCoreApp,Version=v9.0.AssemblyAttributes.cs
@@ -106,6 +108,7 @@ Services/
  ResendEmailService.cs
  TaskCodeGenerator.cs
  TaskService.cs
+UtcDateTimeConverter.cs
 
 [metadataReferences]
 ../

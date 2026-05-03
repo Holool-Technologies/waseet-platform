@@ -129,6 +129,15 @@ import { environment } from '../../../../../environments/environment';
                             <span class="text-xs text-neutral-400">
                               · {{ p.submittedAt | date:'d MMM' }}
                             </span>
+                            <button (click)="viewBidderProfile(p, i)"
+                             class="font-semibold text-brand-600 dark:text-brand-400 hover:underline text-sm">
+                             Bidder-{{ i + 1 }}
+                           </button>
+                              @if (p.freelancerIsVerified) {
+                                  <span class="badge-green text-[10px]" title="Identity verified">✓ Verified</span>
+                              } @else {
+                                  <span class="badge-gray text-[10px]">Unverified</span>
+                              }
                           </div>
 
                           <div class="flex items-center gap-2">
@@ -392,17 +401,18 @@ private loadProposals(code: string) {
   }
 
   chatWithBidder(proposal: Proposal) {
-  this.http.post(`${environment.apiUrl}/chat/conversation/open`, {
-    taskId: this.task()!.taskId,
-    freelancerUserId: proposal.freelancerUserId
-  }).subscribe({
-    next: () => {
-      // Navigate to inbox with this conversation pre-selected via query param
+  // Get conversation ID (deterministic — same as backend)
+  this.http.post<{ conversationId: string; taskCode: string; otherPartyAlias: string }>(
+    `${environment.apiUrl}/chat/conversation/open`,
+    {
+      taskId:          this.task()!.taskId,
+      freelancerUserId: proposal.freelancerUserId
+    }
+  ).subscribe({
+    next: (res) => {
+      // Navigate to inbox with conversationId to auto-select
       this.router.navigate(['/chat/inbox'], {
-        queryParams: {
-          taskId:      this.task()!.taskId,
-          freelancer:  proposal.freelancerUserId
-        }
+        queryParams: { conversationId: res.conversationId }
       });
     },
     error: () => this.toast.error('Could not open chat')

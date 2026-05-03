@@ -105,12 +105,80 @@
     "aiNote": "تتم معالجة الرسائل بالذكاء الاصطناعي لحماية هويتك.",
     "blocked": "تم حظر الرسالة"
   },
+  
   "admin": {
+    "title": "لوحة تحكم المشرف",
+    "dashboard": "الإحصائيات",
+    "users": "المستخدمون",
+    "kyc": "التحقق من الهوية",
+    "tasks": "المهام",
+    "taskApproval": "موافقة المهام",
     "portfolio": "مراجعة المحفظة",
-    "pending": "قيد المراجعة",
-    "approve": "موافقة",
-    "reject": "رفض",
-    "taskApproval": "موافقة على المهام",
-    "rejectionReason": "سبب الرفض"
+    "escrow": "إدارة الضمان",
+    "chatLogs": "سجل المحادثات",
+    "stats": {
+      "totalUsers": "إجمالي المستخدمين",
+      "clients": "العملاء",
+      "freelancers": "المستقلون",
+      "pendingKyc": "تحقق معلق",
+      "totalTasks": "إجمالي المهام",
+      "open": "مفتوحة",
+      "active": "نشطة",
+      "completed": "مكتملة",
+      "disputed": "متنازع عليها",
+      "totalMessages": "إجمالي الرسائل",
+      "blocked": "محجوبة",
+      "escrowVolume": "حجم الضمان",
+      "held": "محجوز"
+    },
+    "actions": {
+      "approve": "موافقة",
+      "reject": "رفض",
+      "ban": "حظر",
+      "delete": "حذف",
+      "resolve": "حل النزاع",
+      "release": "تحرير للمستقل",
+      "refund": "استرداد للعميل"
+    },
+    "status": {
+      "pending": "قيد الانتظار",
+      "approved": "مقبول",
+      "rejected": "مرفوض",
+      "held": "محجوز",
+      "released": "محرر",
+      "disputed": "متنازع عليه"
+    },
+    "kyc": {
+      "queue": "قائمة التحقق من الهوية",
+      "subtitle": "مراجعة وثائق هوية المستخدمين",
+      "document": "وثيقة الهوية",
+      "openNew": "فتح في تبويب جديد",
+      "zoomIn": "تكبير",
+      "reviewedOn": "تمت المراجعة في"
+    },
+    "portfolio": {
+      "title": "مراجعة محافظ الأعمال",
+      "pending": "صور بانتظار المراجعة",
+      "notes": "ملاحظات المشرف",
+      "notesPlaceholder": "سبب الرفض (مطلوب عند الرفض)",
+      "humanDetected": "تم اكتشاف أشخاص في الصورة",
+      "allReviewed": "تمت مراجعة جميع الصور!"
+    },
+    "tasks": {
+      "approvalQueue": "قائمة انتظار الموافقة على المهام",
+      "approvalSubtitle": "مراجعة المهام قبل نشرها للعموم",
+      "approvePublish": "موافقة ونشر",
+      "confirmReject": "تأكيد الرفض",
+      "rejectionReason": "سبب الرفض (سيُرسل للعميل)",
+      "rejectionPlaceholder": "اشرح سبب رفض هذه المهمة...",
+      "queueEmpty": "القائمة فارغة!",
+      "allReviewed": "تمت مراجعة جميع المهام"
+    },
+    "escrow": {
+      "title": "إدارة الضمان",
+      "releaseBtn": "تحرير للمستقل",
+      "refundBtn": "استرداد للعميل"
+    }
   }
 }
+

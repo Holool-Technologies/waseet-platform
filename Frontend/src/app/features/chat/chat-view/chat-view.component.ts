@@ -12,7 +12,8 @@ import { environment } from '../../../../environments/environment';
 export interface ChatMsg {
   messageId: string;
   taskId: string;
-  senderUserId: string;   // ← use this for isMine()
+  conversationId: string;
+  senderUserId: string;
   senderRole: string;
   sanitizedContent: string;
   piiDetected: boolean;
@@ -25,61 +26,72 @@ export interface ChatMsg {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="flex flex-col h-full bg-neutral-50 dark:bg-neutral-950">
+    <div class="flex flex-col h-full">
 
-      <!-- AI banner -->
-      <div class="px-4 py-2 bg-brand-50 dark:bg-brand-900/20 border-b border-brand-100 dark:border-brand-900/50 flex items-center gap-2 flex-shrink-0">
-        <span class="text-brand-500 text-sm flex-shrink-0">🛡</span>
+      <!-- AI protection banner -->
+      <div class="px-4 py-2 bg-brand-50 dark:bg-brand-900/20 border-b border-brand-100 dark:border-brand-900 flex items-center gap-2 flex-shrink-0">
+        <span class="text-brand-500 flex-shrink-0">🛡</span>
         <p class="text-xs text-brand-700 dark:text-brand-300">
-          Messages are AI-sanitized to protect anonymity
+          All messages are AI-sanitized to protect your identity
         </p>
       </div>
 
-      <!-- Messages -->
-      <div #container class="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+      <!-- Messages container -->
+      <div #container
+        class="flex-1 overflow-y-auto px-4 py-4 space-y-2 bg-neutral-50 dark:bg-neutral-950">
 
-        @if (messages().length === 0 && connected()) {
+        @if (historyLoading()) {
+          <div class="flex items-center justify-center h-full">
+            <div class="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        } @else if (messages().length === 0) {
           <div class="flex flex-col items-center justify-center h-full text-center py-8">
             <p class="text-3xl mb-3">👋</p>
-            <p class="text-sm text-neutral-500">Start the conversation</p>
-            <p class="text-xs text-neutral-400 mt-1">Your identity is protected throughout</p>
+            <p class="text-sm font-medium text-neutral-600 dark:text-neutral-300">Start the conversation</p>
+            <p class="text-xs text-neutral-400 mt-1">Your real identity stays protected</p>
           </div>
-        }
-
-        @for (msg of messages(); track msg.messageId) {
-          @let mine = isMine(msg);
-          <div [class]="mine ? 'flex justify-end' : 'flex justify-start'" class="animate-fade-in">
-            <div class="max-w-[75%]">
-              <p [class]="mine
-                ? 'text-[10px] text-neutral-400 text-end mb-1 me-1'
-                : 'text-[10px] text-neutral-400 ms-1 mb-1'">
-                {{ mine ? 'You' : msg.senderRole }}
-              </p>
-              <div [class]="getBubbleClass(msg, mine)">
-                @if (msg.blocked) {
-                  <p class="text-xs italic opacity-70">⚠ Message blocked</p>
-                } @else {
-                  @if (msg.piiDetected) {
-                    <p class="text-[10px] opacity-60 mb-1">🔒 Personal info removed</p>
-                  }
-                  <p class="text-sm leading-relaxed break-words whitespace-pre-wrap">
-                    {{ msg.sanitizedContent }}
-                  </p>
-                }
+        } @else {
+          @for (msg of messages(); track msg.messageId) {
+            @let mine = isMine(msg);
+            <div [class]="mine ? 'flex justify-end' : 'flex justify-start'"
+              class="animate-fade-in">
+              <div class="max-w-[75%]">
                 <p [class]="mine
-                  ? 'text-[10px] opacity-60 text-end mt-1'
-                  : 'text-[10px] opacity-60 mt-1'">
-                  {{ msg.sentAt | date:'HH:mm' }}
+                  ? 'text-[10px] text-neutral-400 text-end mb-0.5 me-1'
+                  : 'text-[10px] text-neutral-400 ms-1 mb-0.5'">
+                  {{ mine ? 'You' : msg.senderRole }}
                 </p>
+                <div [class]="getBubbleClass(msg, mine)">
+                  @if (msg.blocked) {
+                    <p class="text-xs italic opacity-70 flex items-center gap-1">
+                      <span>⚠</span> Message blocked
+                    </p>
+                  } @else {
+                    @if (msg.piiDetected) {
+                      <p class="text-[10px] opacity-60 mb-1 flex items-center gap-1">
+                        <span>🔒</span> Personal info removed
+                      </p>
+                    }
+                    <p class="text-sm leading-relaxed break-words whitespace-pre-wrap">
+                      {{ msg.sanitizedContent }}
+                    </p>
+                  }
+                  <p [class]="mine
+                    ? 'text-[10px] opacity-60 text-end mt-1'
+                    : 'text-[10px] opacity-60 mt-1'">
+                    <!-- Fix 10: date shown as UTC -->
+                    {{ formatTime(msg.sentAt) }}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          }
         }
 
         <!-- Typing indicator -->
         @if (isTyping()) {
-          <div class="flex justify-start">
-            <div class="bg-white dark:bg-neutral-800 rounded-2xl rounded-bl-sm px-4 py-3 border border-neutral-100 dark:border-neutral-700">
+          <div class="flex justify-start animate-fade-in">
+            <div class="bg-white dark:bg-neutral-800 rounded-2xl rounded-bl-sm px-4 py-3 border border-neutral-100 dark:border-neutral-700 shadow-sm">
               <div class="flex gap-1 items-center">
                 @for (i of [0,1,2]; track i) {
                   <div class="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce"
@@ -92,14 +104,15 @@ export interface ChatMsg {
         }
       </div>
 
-      <!-- Error toast inline -->
+      <!-- Error banner -->
       @if (errorMsg()) {
-        <div class="mx-3 mb-2 px-3 py-2 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-600 dark:text-danger-400 text-xs rounded-xl flex items-center gap-2 flex-shrink-0">
-          <span>⚠</span> {{ errorMsg() }}
+        <div class="mx-3 mb-1 px-3 py-2 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-600 dark:text-danger-400 text-xs rounded-xl flex items-center justify-between flex-shrink-0">
+          <span class="flex items-center gap-1.5"><span>⚠</span> {{ errorMsg() }}</span>
+          <button (click)="errorMsg.set('')" class="opacity-60 hover:opacity-100 ms-2">✕</button>
         </div>
       }
 
-      <!-- Input bar -->
+      <!-- Input -->
       <div class="px-3 py-3 bg-white dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800 flex-shrink-0">
         <div class="flex gap-2 items-end">
           <textarea
@@ -107,15 +120,15 @@ export interface ChatMsg {
             (keydown.enter)="onEnter($event)"
             (input)="onType()"
             [placeholder]="connected() ? 'Type a message...' : 'Connecting...'"
-            [disabled]="!connected() || sending()"
+            [disabled]="!connected()"
             rows="1"
-            class="input flex-1 resize-none text-sm py-2.5 max-h-28"
+            class="input flex-1 resize-none text-sm py-2.5 min-h-[42px] max-h-28"
             style="field-sizing: content">
           </textarea>
           <button
             (click)="send()"
-            [disabled]="!text.trim() || !connected() || text.length > 2000 || sending()"
-            class="btn-primary px-4 py-2.5 flex-shrink-0 disabled:opacity-50">
+            [disabled]="!canSend()"
+            class="btn-primary w-10 h-10 p-0 flex-shrink-0 rounded-xl disabled:opacity-50 flex items-center justify-center">
             @if (sending()) {
               <span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
             } @else {
@@ -126,113 +139,146 @@ export interface ChatMsg {
             }
           </button>
         </div>
-        <p class="text-[10px] text-neutral-400 mt-1 text-end">{{ text.length }}/2000</p>
+        @if (text.length > 1800) {
+          <p class="text-[10px] text-warning-500 mt-1 text-end">{{ text.length }}/2000</p>
+        }
       </div>
     </div>
   `
 })
 export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, OnChanges {
-  @Input() taskId!: string;
+  @Input() conversationId!: string;
+  @Input() taskId?: string;
+  @Input() freelancerUserId?: string;  // for first message
+  @Input() isFirstMessage = false;
+
   @ViewChild('container') private container!: ElementRef<HTMLDivElement>;
 
   private hub  = inject(HubService);
   private auth = inject(AuthService);
   private http = inject(HttpClient);
 
-  messages  = signal<ChatMsg[]>([]);
-  connected = signal(false);
-  isTyping  = signal(false);
-  errorMsg  = signal('');
-  sending   = signal(false);
-  text      = '';
+  messages       = signal<ChatMsg[]>([]);
+  connected      = signal(false);
+  isTyping       = signal(false);
+  historyLoading = signal(true);
+  errorMsg       = signal('');
+  sending        = signal(false);
+  text           = '';
 
-  private shouldScroll  = true;
-  private typingTimer:  any;
-  private seenIds       = new Set<string>();  // Fix 7: deduplication
+  private seenIds      = new Set<string>();
+  private shouldScroll = true;
+  private typingTimer: any;
 
-  // Named handlers so we can remove them precisely
-  private handleMessage = (msg: ChatMsg) => {
-    // Fix 7: deduplicate by messageId
+  // Fix infinite loading — timeout fallback
+  private sendTimeout: any;
+
+  canSend = () =>
+    !!this.text.trim() &&
+    this.connected() &&
+    !this.sending() &&
+    this.text.length <= 2000;
+
+  // Named handlers
+  private onMessage = (msg: ChatMsg) => {
     if (this.seenIds.has(msg.messageId)) return;
+    // Only accept messages for THIS conversation
+    if (msg.conversationId !== this.conversationId) return;
     this.seenIds.add(msg.messageId);
     this.messages.update(m => [...m, msg]);
     this.shouldScroll = true;
+    // Fix infinite loading — clear sending on message received
     this.sending.set(false);
+    clearTimeout(this.sendTimeout);
   };
 
-  private handleTyping  = () => {
+  private onTyping = (convId: string) => {
+    if (convId !== this.conversationId) return;
     this.isTyping.set(true);
     clearTimeout(this.typingTimer);
     this.typingTimer = setTimeout(() => this.isTyping.set(false), 2500);
   };
 
-  private handleBlocked = (r: string) => {
+  private onBlocked = (r: string) => {
     this.errorMsg.set(r);
     this.sending.set(false);
-    setTimeout(() => this.errorMsg.set(''), 5000);
+    clearTimeout(this.sendTimeout);
   };
 
-  private handleError = (e: string) => {
+  private onError = (e: string) => {
     this.errorMsg.set(e);
     this.sending.set(false);
-    setTimeout(() => this.errorMsg.set(''), 5000);
+    clearTimeout(this.sendTimeout);
   };
 
-  async ngOnInit() {
-    await this.initHub();
-  }
+  async ngOnInit() { await this.init(); }
 
-  async ngOnChanges(changes: SimpleChanges) {
-    if (changes['taskId'] && !changes['taskId'].firstChange) {
-      // Task changed — leave old, join new
-      if (changes['taskId'].previousValue) {
-        await this.hub.leaveTask(changes['taskId'].previousValue);
-        this.hub.off('ReceiveMessage', this.handleMessage);
-        this.hub.off('UserTyping',     this.handleTyping);
-        this.hub.off('MessageBlocked', this.handleBlocked);
-        this.hub.off('Error',          this.handleError);
+  async ngOnChanges(c: SimpleChanges) {
+    if (c['conversationId'] && !c['conversationId'].firstChange) {
+      const prev = c['conversationId'].previousValue;
+      if (prev) {
+        await this.hub.leaveConversation(prev);
+        this.hub.off('ReceiveMessage', this.onMessage);
+        this.hub.off('UserTyping',     this.onTyping);
+        this.hub.off('MessageBlocked', this.onBlocked);
+        this.hub.off('Error',          this.onError);
       }
       this.messages.set([]);
       this.seenIds.clear();
-      await this.initHub();
+      this.historyLoading.set(true);
+      await this.init();
     }
   }
 
-  private async initHub() {
+  private async init() {
+    if (!this.conversationId) return;
+
     await this.hub.connect();
-    await this.hub.joinTask(this.taskId);
+    await this.hub.joinConversation(this.conversationId);
     this.connected.set(true);
 
-    this.hub.on('ReceiveMessage', this.handleMessage);
-    this.hub.on('UserTyping',     this.handleTyping);
-    this.hub.on('MessageBlocked', this.handleBlocked);
-    this.hub.on('Error',          this.handleError);
+    this.hub.on('ReceiveMessage', this.onMessage);
+    this.hub.on('UserTyping',     this.onTyping);
+    this.hub.on('MessageBlocked', this.onBlocked);
+    this.hub.on('Error',          this.onError);
 
-    this.loadHistory();
+    // Don't load history for a brand-new conversation
+    if (!this.isFirstMessage) {
+      this.loadHistory();
+    } else {
+      this.historyLoading.set(false);
+    }
   }
 
   private loadHistory() {
+    this.historyLoading.set(true);
     const params = new HttpParams().set('page', 1).set('pageSize', 50);
     this.http.get<ChatMsg[]>(
-      `${environment.apiUrl}/chat/conversation/${this.taskId}`,
+      `${environment.apiUrl}/chat/conversation/${this.conversationId}/messages`,
       { params }
     ).subscribe({
       next: msgs => {
-        // Seed seenIds so incoming SignalR dupes are caught
         msgs.forEach(m => this.seenIds.add(m.messageId));
         this.messages.set(msgs);
         this.shouldScroll = true;
+        this.historyLoading.set(false);
       },
-      error: () => {}
+      error: (err) => {
+        this.historyLoading.set(false);
+        if (err.status === 403) {
+          this.errorMsg.set('Access denied to this conversation.');
+        } else if (err.status === 404) {
+          this.historyLoading.set(false); // new conversation — no history
+        }
+      }
     });
   }
 
   ngAfterViewChecked() {
-    if (this.shouldScroll) {
+    if (this.shouldScroll && !this.historyLoading()) {
       try {
-        const el = this.container.nativeElement;
-        el.scrollTop = el.scrollHeight;
-        this.shouldScroll = false;
+        const el = this.container?.nativeElement;
+        if (el) { el.scrollTop = el.scrollHeight; this.shouldScroll = false; }
       } catch {}
     }
   }
@@ -243,33 +289,59 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
   }
 
   onType() {
-    this.hub.sendTyping(this.taskId);
+    if (this.conversationId)
+      this.hub.sendTyping(this.conversationId);
   }
 
   async send() {
-    const content = this.text.trim();
-    if (!content || content.length > 2000 || this.sending()) return;
+    if (!this.canSend()) return;
 
+    const content = this.text.trim();
+    this.text     = '';
     this.sending.set(true);
-    const textToSend = content;
-    this.text = '';  // Clear immediately for UX
+    this.errorMsg.set('');
+
+    // Fix infinite loading — timeout fallback after 10s
+    clearTimeout(this.sendTimeout);
+    this.sendTimeout = setTimeout(() => {
+      if (this.sending()) {
+        this.sending.set(false);
+        this.text = content;  // restore
+        this.errorMsg.set('Send timed out. Please try again.');
+      }
+    }, 10000);
 
     try {
-      await this.hub.sendMessage(this.taskId, textToSend);
-      // Message will arrive via ReceiveMessage handler
-      // sending flag cleared there
-    } catch {
-      this.text = textToSend;  // Restore on error
+      if (this.isFirstMessage && this.taskId && this.freelancerUserId) {
+        // First message — creates conversation lazily
+        await this.hub.sendFirstMessage(
+          this.taskId, this.freelancerUserId, content);
+        this.isFirstMessage = false;
+      } else {
+        await this.hub.sendMessage(this.conversationId, content);
+      }
+    } catch (err) {
       this.sending.set(false);
+      clearTimeout(this.sendTimeout);
+      this.text = content;
       this.errorMsg.set('Failed to send. Please try again.');
     }
   }
 
-  // Fix 8: use senderUserId NOT senderRole for isMine()
+  // Fix 8: use senderUserId for isMine
   isMine(msg: ChatMsg): boolean {
-    const userId = this.auth.currentUser()?.userId;
-    if (!userId) return false;
-    return msg.senderUserId === userId;
+    return msg.senderUserId === this.auth.currentUser()?.userId;
+  }
+
+  // Fix 10: format UTC dates correctly
+  formatTime(dateStr: string): string {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString([], {
+      hour:   '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    });
   }
 
   getBubbleClass(msg: ChatMsg, mine: boolean): string {
@@ -282,10 +354,12 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
 
   ngOnDestroy() {
     clearTimeout(this.typingTimer);
-    this.hub.leaveTask(this.taskId);
-    this.hub.off('ReceiveMessage', this.handleMessage);
-    this.hub.off('UserTyping',     this.handleTyping);
-    this.hub.off('MessageBlocked', this.handleBlocked);
-    this.hub.off('Error',          this.handleError);
+    clearTimeout(this.sendTimeout);
+    if (this.conversationId)
+      this.hub.leaveConversation(this.conversationId);
+    this.hub.off('ReceiveMessage', this.onMessage);
+    this.hub.off('UserTyping',     this.onTyping);
+    this.hub.off('MessageBlocked', this.onBlocked);
+    this.hub.off('Error',          this.onError);
   }
 }

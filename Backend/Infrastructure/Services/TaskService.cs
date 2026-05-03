@@ -165,60 +165,62 @@ public class TaskService : ITaskService
             CoverLetter = request.CoverLetter.Trim(),
             BidAmount = request.BidAmount
         };
-
         task.Status = Domain.Enums.TaskStatus.Bidding;
         task.UpdatedAt = DateTime.UtcNow;
-
+        bool isfreelancerverified = await _db.Users
+            .AsNoTracking()
+            .Where(u => u.UserId == freelancerUserId && u.KycStatus == KycStatus.Approved)
+            .AnyAsync(ct);
         _db.Proposals.Add(proposal);
         await _db.SaveChangesAsync(ct);
-        return MapProposal(proposal);
+        return MapProposal(proposal, isfreelancerverified);
     }
 
-  public async Task<IEnumerable<ProposalResponse>> GetProposalsAsync(
-    Guid requestingUserId,
-    string taskCode,
-    bool isClient,
-    CancellationToken ct = default)
-{
-    var task = await _db.Tasks
-        .AsNoTracking()
-        .FirstOrDefaultAsync(t => t.PublicTaskCode == taskCode, ct)
-        ?? throw new KeyNotFoundException("Task not found.");
-
-    // Client sees full proposals. Freelancer sees anonymized competing bids.
-    if (!isClient && task.FreelancerUserId != requestingUserId)
+    public async Task<IEnumerable<ProposalResponse>> GetProposalsAsync(
+      Guid requestingUserId,
+      string taskCode,
+      bool isClient,
+      CancellationToken ct = default)
     {
-        // Freelancer sees only bid amounts + status — no cover letters, no IDs
-        return await _db.Proposals
+        var task = await _db.Tasks
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.PublicTaskCode == taskCode, ct)
+            ?? throw new KeyNotFoundException("Task not found.");
+
+        var proposals = await _db.Proposals
             .AsNoTracking()
             .Where(p => p.TaskId == task.TaskId)
             .OrderByDescending(p => p.SubmittedAt)
-            .Select(p => new ProposalResponse(
-                Guid.Empty,           // anonymized
-                p.TaskId,
-                Guid.Empty,           // anonymized
-                string.Empty,         // no cover letter
-                p.BidAmount,
-                (int)p.Status,
-                p.Status.ToString(),
-                p.SubmittedAt
-            ))
             .ToListAsync(ct);
-    }
 
-    if (isClient && task.ClientUserId != requestingUserId)
-        throw new UnauthorizedAccessException("Only the task owner can view full proposals.");
+        // Get verification status for all bidders in one query
+        var bidderIds = proposals.Select(p => p.FreelancerUserId).Distinct().ToList();
+        var verifiedIds = await _db.Users
+            .AsNoTracking()
+            .Where(u => bidderIds.Contains(u.UserId)
+                     && u.KycStatus == Domain.Enums.KycStatus.Approved)
+            .Select(u => u.UserId)
+            .ToHashSetAsync(ct);
 
-    return await _db.Proposals
-        .AsNoTracking()
-        .Where(p => p.TaskId == task.TaskId)
-        .OrderByDescending(p => p.SubmittedAt)
-        .Select(p => new ProposalResponse(
+        // Client: full details. Freelancer: anonymized bids
+        if (!isClient)
+        {
+            return proposals.Select(p => new ProposalResponse(
+                Guid.Empty, p.TaskId, Guid.Empty,
+                string.Empty, p.BidAmount,
+                (int)p.Status, p.Status.ToString(),
+            verifiedIds.Contains(p.FreelancerUserId), p.SubmittedAt));
+        }
+
+        if (task.ClientUserId != requestingUserId)
+            throw new UnauthorizedAccessException("Only the task owner can view full proposals.");
+
+        return proposals.Select(p => new ProposalResponse(
             p.ProposalId, p.TaskId, p.FreelancerUserId,
-            p.CoverLetter, p.BidAmount, (int)p.Status,
-            p.Status.ToString(), p.SubmittedAt))
-        .ToListAsync(ct);
-}
+            p.CoverLetter, p.BidAmount,
+            (int)p.Status, p.Status.ToString(),
+            verifiedIds.Contains(p.FreelancerUserId),p.SubmittedAt));
+    }
 
     public async Task<TaskResponse> AwardProposalAsync(
         Guid clientUserId, string taskCode,
@@ -416,10 +418,10 @@ private static TaskResponse MapTask(Task t, int proposalCount) => new(
     t.RejectionReason,
     t.CreatedAt, t.UpdatedAt);
 
-    private static ProposalResponse MapProposal(Proposal p) => new(
+    private static ProposalResponse MapProposal(Proposal p, bool isFreelancerVerified) => new(
         p.ProposalId, p.TaskId, p.FreelancerUserId,
         p.CoverLetter, p.BidAmount, (int)p.Status,
-        p.Status.ToString(), p.SubmittedAt);
+        p.Status.ToString(), isFreelancerVerified, p.SubmittedAt);
 
     private static EscrowResponse MapEscrow(EscrowTransaction e) => new(
         e.EscrowId, e.TaskId, e.AmountUSD, (int)e.Status,

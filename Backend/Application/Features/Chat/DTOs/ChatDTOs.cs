@@ -3,7 +3,8 @@
 public record ChatMessageResponse(
     Guid MessageId,
     Guid TaskId,
-    Guid SenderUserId,     // ← ADD THIS — needed for client-side isMine()
+    Guid ConversationId,    // NEW
+    Guid SenderUserId,      // needed for isMine()
     string SenderRole,
     string SanitizedContent,
     bool PiiDetected,
@@ -11,20 +12,19 @@ public record ChatMessageResponse(
     DateTime SentAt
 );
 
-public record SendMessageRequest(
-    Guid TaskId,
-    string Content
-);
-
 public record ConversationResponse(
     Guid ConversationId,
     Guid TaskId,
     string TaskCode,
     string TaskTitle,
-    string OtherPartyRole,
+    string OtherPartyAlias,
     string LastMessage,
     DateTime LastMessageAt,
     int UnreadCount
 );
 
+public record SendMessageRequest(Guid ConversationId, string Content);
 public record OpenConversationRequest(Guid TaskId, Guid FreelancerUserId);
+public record OpenConversationResponse(
+    Guid ConversationId, Guid TaskId,
+    string TaskCode, string OtherPartyAlias);
