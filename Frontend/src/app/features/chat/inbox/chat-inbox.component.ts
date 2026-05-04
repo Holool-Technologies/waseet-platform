@@ -227,7 +227,7 @@ ngOnInit() {
         const match = c.find(x => x.conversationId === convId);
         if (match) {
           this.selectConversation(match);
-        } else {
+        } else {       
           // Conversation exists but has no messages yet — show empty chat
           // Get conversation details from query params
           const taskId     = this.route.snapshot.queryParamMap.get('taskId');
@@ -235,6 +235,7 @@ ngOnInit() {
           const alias      = this.route.snapshot.queryParamMap.get('alias') ?? 'Bidder';
 
           if (taskId && freelancer) {
+           console.log(JSON.stringify({ convId, taskId, freelancer, alias }));
             // Show new conversation UI
             this.newConversation.set({
               conversationId: convId,
@@ -243,6 +244,7 @@ ngOnInit() {
               alias
             });
           }
+
         }
       }
     },

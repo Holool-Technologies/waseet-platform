@@ -5,7 +5,9 @@ public record CreateTaskRequest(
     int Category = 0
 );
 
-public record TaskResponse(
+public record 
+    
+    TaskResponse(
     Guid TaskId,
     string PublicTaskCode,
     Guid ClientUserId,
@@ -19,7 +21,8 @@ public record TaskResponse(
     string CategoryLabel,
     int ProposalCount,
     string ApprovalStatus,      // NEW
-    string RejectionReason,     // NEW
+    string RejectionReason,
+    bool HasSubmittedProposal, // NEW
     DateTime CreatedAt,
     DateTime UpdatedAt
 );

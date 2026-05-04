@@ -118,8 +118,8 @@ public class TaskService : ITaskService
                 .AsNoTracking()
                 .AnyAsync(p => p.TaskId == task.TaskId && p.FreelancerUserId == requestingUserId, ct);
         }
-
-        return MapTask(task, task.Proposals.Count);
+        
+        return MapTask(task, task.Proposals.Count, hasSubmittedProposal);
     }
 
     public async Task<IEnumerable<TaskResponse>> GetMineAsync(
@@ -131,7 +131,7 @@ public class TaskService : ITaskService
             .AsNoTracking()
             .Where(t => t.ClientUserId == userId || t.FreelancerUserId == userId)
             .OrderByDescending(t => t.CreatedAt)
-            .Select(t => MapTask(t, t.Proposals.Count))
+            .Select(t => MapTask(t, t.Proposals.Count,false))
             .ToListAsync(ct);
     }
 
@@ -203,7 +203,7 @@ public class TaskService : ITaskService
             .ToHashSetAsync(ct);
 
         // Client: full details. Freelancer: anonymized bids
-        if (!isClient)
+        if (!isClient|| task.ClientUserId != requestingUserId)
         {
             return proposals.Select(p => new ProposalResponse(
                 Guid.Empty, p.TaskId, Guid.Empty,
@@ -211,9 +211,6 @@ public class TaskService : ITaskService
                 (int)p.Status, p.Status.ToString(),
             verifiedIds.Contains(p.FreelancerUserId), p.SubmittedAt));
         }
-
-        if (task.ClientUserId != requestingUserId)
-            throw new UnauthorizedAccessException("Only the task owner can view full proposals.");
 
         return proposals.Select(p => new ProposalResponse(
             p.ProposalId, p.TaskId, p.FreelancerUserId,
@@ -400,7 +397,7 @@ public class TaskService : ITaskService
             .OrderBy(t => t.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(t => MapTask(t, 0))
+            .Select(t => MapTask(t, 0,false))
             .ToListAsync(ct);
 
         return new PagedResult<TaskResponse>(
@@ -408,14 +405,14 @@ public class TaskService : ITaskService
             (int)Math.Ceiling(total / (double)pageSize));
     }
 
-private static TaskResponse MapTask(Task t, int proposalCount) => new(
+private static TaskResponse MapTask(Task t, int proposalCount,bool hasSubmittedProposal = false) => new(
     t.TaskId, t.PublicTaskCode, t.ClientUserId, t.FreelancerUserId,
     t.Title, t.Description, t.BudgetUSD,
     (int)t.Status, t.Status.ToString(),
     (int)t.Category, t.Category.ToString().Replace("_", " & "),
     proposalCount,
     t.ApprovalStatus.ToString(),
-    t.RejectionReason,
+    t.RejectionReason, hasSubmittedProposal,
     t.CreatedAt, t.UpdatedAt);
 
     private static ProposalResponse MapProposal(Proposal p, bool isFreelancerVerified) => new(

@@ -36,7 +36,6 @@ import { environment } from '../../../../../environments/environment';
             <div class="card p-8">
               <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span class="text-xs font-mono text-neutral-400">{{ task()!.publicTaskCode }}</span>
                   <span [class]="getStatusBadge(task()!.status)">{{ task()!.statusLabel }}</span>
                   <span class="badge-blue">{{ task()!.categoryLabel }}</span>
                 </div>
@@ -57,13 +56,6 @@ import { environment } from '../../../../../environments/environment';
                 <span class="text-xs text-neutral-400">·</span>
                 <span class="text-xs text-neutral-400">{{ task()!.proposalCount }} bids</span>
 
-                <!-- Chat button — for awarded freelancer -->
-                @if (auth.isFreelancer() && task()!.freelancerUserId === auth.currentUser()?.userId) {
-                  <a [routerLink]="['/chat', task()!.taskId]"
-                     class="btn-primary btn-sm ms-auto">
-                    💬 Open Chat
-                  </a>
-                }
               </div>
             </div>
 
@@ -97,52 +89,42 @@ import { environment } from '../../../../../environments/environment';
             @if (proposals().length > 0) {
               <div class="card p-6">
                 <h2 class="text-base font-semibold text-neutral-900 dark:text-white mb-5">
-                @if (auth.isClient() && task()!.clientUserId === auth.currentUser()?.userId) {
-                 Proposals ({{ proposals().length }})
-                 } @else {
-                 Competing Bids ({{ proposals().length }} freelancer{{ proposals().length !== 1 ? 's' : '' }} have bid)
-                }
+                  @if (auth.isClient() && task()!.clientUserId === auth.currentUser()?.userId) {
+                    Proposals ({{ proposals().length }})
+                  } @else {
+                    Competing Bids ({{ proposals().length }} freelancer{{ proposals().length !== 1 ? 's' : '' }} have bid)
+                  }
                 </h2>
 
-                @if (proposals().length === 0) {
-                  <div class="py-8 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-xl">
-                    <p class="text-neutral-400 text-sm">No proposals yet. Share your task to get bids.</p>
-                  </div>
-                } @else {
-                  <div class="space-y-4">
-                    @for (p of proposals(); track p.proposalId; let i = $index) {
-                      <div class="border border-neutral-100 dark:border-neutral-800 rounded-2xl p-5 hover:border-brand-200 dark:hover:border-brand-800 transition-colors">
-                        <div class="flex items-start justify-between gap-3 flex-wrap mb-3">
-                          <div class="flex items-center gap-2">
-
-                            <!-- Anonymous avatar -->
-                            <div class="avatar-sm font-bold text-xs">
-                              {{ i + 1 }}
-                            </div>
-
-                            <!-- Anonymous name — clickable to profile -->
-                            <button
-                              (click)="viewBidderProfile(p, i)"
-                              class="font-semibold text-brand-600 dark:text-brand-400 hover:underline text-sm">
-                              Bidder-{{ i + 1 }}
-                            </button>
-                            <span class="text-xs text-neutral-400">
-                              · {{ p.submittedAt | date:'d MMM' }}
-                            </span>
-                            <button (click)="viewBidderProfile(p, i)"
-                             class="font-semibold text-brand-600 dark:text-brand-400 hover:underline text-sm">
-                             Bidder-{{ i + 1 }}
-                           </button>
-                              @if (p.freelancerIsVerified) {
-                                  <span class="badge-green text-[10px]" title="Identity verified">✓ Verified</span>
-                              } @else {
-                                  <span class="badge-gray text-[10px]">Unverified</span>
-                              }
+                <div class="space-y-4">
+                  @for (p of proposals(); track p.proposalId; let i = $index) {
+                    <div class="border border-neutral-100 dark:border-neutral-800 rounded-2xl p-5 hover:border-brand-200 dark:hover:border-brand-800 transition-colors">
+                      <div class="flex items-start justify-between gap-3 flex-wrap mb-3">
+                        <div class="flex items-center gap-2">
+                          <!-- Anonymous avatar -->
+                          <div class="avatar-sm font-bold text-xs">
+                            {{ i + 1 }}
                           </div>
 
-                          <div class="flex items-center gap-2">
-                            <span class="text-lg font-bold text-brand-600">\${{ p.bidAmount }}</span>
+                          <!-- Anonymous name — clickable to profile -->
+                          <button
+                            (click)="viewBidderProfile(p, i)"
+                            class="font-semibold text-brand-600 dark:text-brand-400 hover:underline text-sm">
+                            Bidder-{{ i + 1 }}
+                          </button>
+                          <span class="text-xs text-neutral-400">
+                            · {{ p.submittedAt | date:'d MMM' }}
+                          </span>
+                          @if (p.freelancerIsVerified) {
+                            <span class="badge-green text-[10px]" title="Identity verified">✓ Verified</span>
+                          } @else {
+                            <span class="badge-gray text-[10px]">Unverified</span>
+                          }
+                        </div>
 
+                        <div class="flex items-center gap-2">
+                          <span class="text-lg font-bold text-brand-600">\${{ p.bidAmount }}</span>
+                          @if (auth.isClient() && task()!.clientUserId === auth.currentUser()?.userId) {
                             <!-- Chat with bidder icon -->
                             <button
                               (click)="chatWithBidder(p)"
@@ -168,18 +150,18 @@ import { environment } from '../../../../../environments/environment';
                                 Award
                               </button>
                             }
-                          </div>
+                          }
                         </div>
-
-                        @if (p.coverLetter) {
-                          <p class="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                            {{ p.coverLetter }}
-                          </p>
-                        }
                       </div>
-                    }
-                  </div>
-                }
+
+                      @if (p.coverLetter) {
+                        <p class="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                          {{ p.coverLetter }}
+                        </p>
+                      }
+                    </div>
+                  }
+                </div>
               </div>
             }
 
@@ -351,7 +333,9 @@ export class TaskDetailComponent implements OnInit {
       this.task.set(t);
       this.loading.set(false);
       this.loadProposals(code);
-
+      if(this.auth.isFreelancer()) {
+        this.hasAlreadyBid.set(t.hasSubmittedProposal);
+}
       // Load escrow if client and task owner
       if (this.auth.isClient()
           && t.clientUserId === this.auth.currentUser()?.userId
@@ -364,6 +348,7 @@ export class TaskDetailComponent implements OnInit {
     },
     error: () => this.loading.set(false)
   });
+  
 }
 
 private loadProposals(code: string) {
@@ -372,10 +357,11 @@ private loadProposals(code: string) {
     next: (proposals: Proposal[]) => {
       this.proposals.set(proposals);
       // Fix 1+3: check if current freelancer already bid
-      if (this.auth.isFreelancer() && userId) {
-        const mine = proposals.find(p => p.freelancerUserId === userId);
-        this.hasAlreadyBid.set(!!mine);
-      }
+      // if (this.auth.isFreelancer() && userId) {
+      //   const mine = proposals.find(p => p.freelancerUserId === userId);
+      //   this.hasAlreadyBid.set(!!mine);
+      //   alert(JSON.stringify(!!mine))
+      // }
     },
     error: () => {}
   });
@@ -412,7 +398,7 @@ private loadProposals(code: string) {
     next: (res) => {
       // Navigate to inbox with conversationId to auto-select
       this.router.navigate(['/chat/inbox'], {
-        queryParams: { conversationId: res.conversationId }
+        queryParams: { conversationId: res.conversationId,taskId: res.taskCode, freelancer: proposal.freelancerUserId,alias: res.otherPartyAlias }
       });
     },
     error: () => this.toast.error('Could not open chat')
