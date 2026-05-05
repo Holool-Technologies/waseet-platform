@@ -89,9 +89,9 @@ export class HubService {
       await this.hub.invoke('LeaveConversation', conversationId);
   }
 
-  async sendMessage(conversationId: string, content: string) {
+  async sendMessage(senderUserId:string,conversationId: string, content: string) {
     await this.ensureConnected();
-    await this.hub?.invoke('SendMessage', conversationId, content);
+    await this.hub?.invoke('SendMessage', senderUserId, conversationId, content);
   }
 
   async sendFirstMessage(taskId: string, freelancerId: string, content: string) {

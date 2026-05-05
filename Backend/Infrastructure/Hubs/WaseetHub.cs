@@ -46,12 +46,11 @@ public class WaseetHub : Hub
     }
 
     // ── Send message scoped to conversation ───────────────────
-    public async Task SendMessage(string conversationId, string content)
+    public async Task SendMessage(Guid senderUserId,string conversationId, string content)
     {
         if (string.IsNullOrWhiteSpace(content) || content.Length > 2000) return;
 
-        var userId = GetUserId();
-        if (userId == Guid.Empty)
+        if (senderUserId == Guid.Empty)
         {
             await Clients.Caller.SendAsync("Error", "Unauthorized.");
             return;
@@ -62,7 +61,7 @@ public class WaseetHub : Hub
         try
         {
             var message = await _chatService.ProcessAndSaveAsync(
-                userId, convGuid, content);
+                senderUserId, convGuid, content);
 
             if (message.Blocked)
             {

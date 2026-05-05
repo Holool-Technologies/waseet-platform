@@ -321,7 +321,7 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
           this.taskId, this.freelancerUserId, content);
         this.isFirstMessage = false;
       } else {
-        await this.hub.sendMessage(this.conversationId, content);
+        await this.hub.sendMessage(this.auth.currentUser()?.userId ?? '', this.conversationId, content);
       }
     } catch (err) {
       this.sending.set(false);
