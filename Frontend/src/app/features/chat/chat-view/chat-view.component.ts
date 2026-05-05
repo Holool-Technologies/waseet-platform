@@ -261,6 +261,7 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
     ).subscribe({
       next: msgs => {
         msgs.forEach(m => this.seenIds.add(m.messageId));
+        // msgs.forEach(m => alert(JSON.stringify(m)));
         this.messages.set(msgs);
         this.shouldScroll = true;
         this.historyLoading.set(false);

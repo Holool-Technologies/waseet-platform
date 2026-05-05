@@ -12,7 +12,7 @@ interface Conversation {
   taskId: string;
   taskCode: string;
   taskTitle: string;
-  otherPartyRole: string;
+  otherPartyAlias: string;
   lastMessage: string;
   lastMessageAt: string;
   unreadCount: number;
@@ -74,13 +74,13 @@ interface Conversation {
 
                 <!-- Avatar -->
                 <div class="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold text-sm flex-shrink-0">
-                  {{ conv.otherPartyRole === 'Client' ? 'C' : conv.otherPartyRole.charAt(0) }}
+                  {{ conv.otherPartyAlias === 'Client' ? 'C' : conv.otherPartyAlias.charAt(0) }}
                 </div>
 
                 <div class="flex-1 min-w-0 text-start">
                   <div class="flex items-center justify-between mb-0.5">
                     <p class="text-sm font-semibold text-neutral-900 dark:text-white truncate">
-                      {{ conv.otherPartyRole }}
+                      {{ conv.otherPartyAlias }}
                     </p>
                     <p class="text-[10px] text-neutral-400 flex-shrink-0 ms-2">
                       {{ formatTime(conv.lastMessageAt) }}
@@ -107,11 +107,66 @@ interface Conversation {
       </div>
 
       <!-- Chat area -->
-      <div [class]="selected()
+      <div [class]="selected() || newConversation()
         ? 'flex flex-col flex-1'
         : 'hidden md:flex flex-col flex-1'">
 
-        @if (!selected()) {
+        @if (selected() || newConversation()) {
+          @if (selected()) {
+            <!-- Chat header for existing conversation -->
+            <div class="flex items-center gap-3 px-4 py-3 bg-white dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800">
+              <!-- Back button on mobile -->
+              <button (click)="selected.set(null)" class="md:hidden btn-ghost btn-sm p-2">
+                ←
+              </button>
+
+              <div class="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                {{ selected()!.otherPartyAlias.charAt(0) }}
+              </div>
+
+              <div class="flex-1 min-w-0">
+                <p class="font-semibold text-neutral-900 dark:text-white text-sm">
+                  {{ selected()!.otherPartyAlias }}
+                </p>
+                <p class="text-xs text-neutral-400">
+                  {{ selected()!.taskCode }} · {{ selected()!.taskTitle }}
+                </p>
+              </div>
+
+              <a [routerLink]="['/tasks', selected()!.taskCode]"
+                 class="btn-secondary btn-sm hidden sm:inline-flex">
+                View Task →
+              </a>
+            </div>
+
+            <!-- Embed the chat component -->
+            <app-chat-view
+              [conversationId]="selected()!.conversationId"
+              class="flex-1 overflow-hidden flex flex-col">
+            </app-chat-view>
+          } @else if (newConversation()) {
+            <!-- New conversation — first message -->
+            <div class="flex flex-col h-full">
+              <div class="flex items-center gap-3 px-4 py-3 bg-white dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800">
+                <button (click)="newConversation.set(null)" class="md:hidden btn-ghost btn-sm p-2">←</button>
+                <div class="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-600 flex items-center justify-center font-bold text-sm">
+                  {{ newConversation()!.alias.charAt(0) }}
+                </div>
+                <div>
+                  <p class="font-semibold text-neutral-900 dark:text-white text-sm">{{ newConversation()!.alias }}</p>
+                  <p class="text-xs text-neutral-400">New conversation</p>
+                </div>
+              </div>
+              <app-chat-view
+                [conversationId]="newConversation()!.conversationId"
+                [taskId]="newConversation()!.taskId"
+                [freelancerUserId]="newConversation()!.freelancerUserId"
+                [isFirstMessage]="true"
+                class="flex-1 overflow-hidden flex flex-col">
+              </app-chat-view>
+            </div>
+          }
+        } @else {
           <!-- Empty state — desktop -->
           <div class="flex flex-col items-center justify-center h-full text-center px-8">
             <div class="w-20 h-20 bg-brand-50 dark:bg-brand-900/20 rounded-3xl flex items-center justify-center mb-5">
@@ -125,66 +180,7 @@ interface Conversation {
               Select a conversation to start messaging. All chats are anonymized and AI-protected.
             </p>
           </div>
-        } @else {
-          <!-- Chat header -->
-          <div class="flex items-center gap-3 px-4 py-3 bg-white dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800">
-            <!-- Back button on mobile -->
-            <button (click)="selected.set(null)" class="md:hidden btn-ghost btn-sm p-2">
-              ←
-            </button>
-
-            <div class="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 flex items-center justify-center font-bold text-sm flex-shrink-0">
-              {{ selected()!.otherPartyRole.charAt(0) }}
-            </div>
-
-            <div class="flex-1 min-w-0">
-              <p class="font-semibold text-neutral-900 dark:text-white text-sm">
-                {{ selected()!.otherPartyRole }}
-              </p>
-              <p class="text-xs text-neutral-400">
-                {{ selected()!.taskCode }} · {{ selected()!.taskTitle }}
-              </p>
-            </div>
-
-            <a [routerLink]="['/tasks', selected()!.taskCode]"
-               class="btn-secondary btn-sm hidden sm:inline-flex">
-              View Task →
-            </a>
-          </div>
-
-          <!-- Embed the chat component -->
-          @if (selected()) {
-  <!-- existing chat header + ChatViewComponent -->
-  <app-chat-view
-    [conversationId]="selected()!.conversationId"
-    class="flex-1 overflow-hidden flex flex-col">
-  </app-chat-view>
-} @else if (newConversation()) {
-  <!-- New conversation — first message -->
-  <div class="flex flex-col h-full">
-    <div class="flex items-center gap-3 px-4 py-3 bg-white dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800">
-      <button (click)="newConversation.set(null)" class="md:hidden btn-ghost btn-sm p-2">←</button>
-      <div class="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-600 flex items-center justify-center font-bold text-sm">
-        {{ newConversation()!.alias.charAt(0) }}
-      </div>
-      <div>
-        <p class="font-semibold text-neutral-900 dark:text-white text-sm">{{ newConversation()!.alias }}</p>
-        <p class="text-xs text-neutral-400">New conversation</p>
-      </div>
-    </div>
-    <app-chat-view
-      [conversationId]="newConversation()!.conversationId"
-      [taskId]="newConversation()!.taskId"
-      [freelancerUserId]="newConversation()!.freelancerUserId"
-      [isFirstMessage]="true"
-      class="flex-1 overflow-hidden flex flex-col">
-    </app-chat-view>
-  </div>
 }
-      }
-      </div>
-
-    </div>
   `
 })
 export class ChatInboxComponent implements OnInit {
@@ -211,7 +207,7 @@ export class ChatInboxComponent implements OnInit {
       !this.searchQuery ||
       c.taskTitle.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
       c.taskCode.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-      c.otherPartyRole.toLowerCase().includes(this.searchQuery.toLowerCase())
+      c.otherPartyAlias.toLowerCase().includes(this.searchQuery.toLowerCase())
     );
 
 // Add to ChatInboxComponent:
@@ -221,34 +217,39 @@ ngOnInit() {
     next: c => {
       this.conversations.set(c);
       this.loading.set(false);
-
-      const convId = this.route.snapshot.queryParamMap.get('conversationId');
-      if (convId) {
-        const match = c.find(x => x.conversationId === convId);
-        if (match) {
-          this.selectConversation(match);
-        } else {       
-          // Conversation exists but has no messages yet — show empty chat
-          // Get conversation details from query params
-          const taskId     = this.route.snapshot.queryParamMap.get('taskId');
-          const freelancer = this.route.snapshot.queryParamMap.get('freelancer');
-          const alias      = this.route.snapshot.queryParamMap.get('alias') ?? 'Bidder';
-
-          if (taskId && freelancer) {
-           console.log(JSON.stringify({ convId, taskId, freelancer, alias }));
-            // Show new conversation UI
-            this.newConversation.set({
-              conversationId: convId,
-              taskId,
-              freelancerUserId: freelancer,
-              alias
-            });
-          }
-
-        }
-      }
     },
     error: () => this.loading.set(false)
+  });
+
+  // Handle query params for opening conversations
+  this.route.queryParamMap.subscribe(params => {
+    const convId = params.get('conversationId');
+    if (convId) {
+      const match = this.conversations().find(x => x.conversationId === convId);
+      if (match) {
+        this.selectConversation(match);
+      } else {       
+        // Conversation exists but has no messages yet — show empty chat
+        // Get conversation details from query params
+        const taskId     = params.get('taskId');
+        const freelancer = params.get('freelancer');
+        const alias      = params.get('alias') ?? 'Bidder';
+
+        if (taskId && freelancer) {
+          // Show new conversation UI
+          this.newConversation.set({
+            conversationId: convId,
+            taskId,
+            freelancerUserId: freelancer,
+            alias
+          });
+        }
+      }
+    } else {
+      // No conversationId, clear selections
+      this.selected.set(null);
+      this.newConversation.set(null);
+    }
   });
 }
 

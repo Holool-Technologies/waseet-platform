@@ -398,7 +398,7 @@ private loadProposals(code: string) {
     next: (res) => {
       // Navigate to inbox with conversationId to auto-select
       this.router.navigate(['/chat/inbox'], {
-        queryParams: { conversationId: res.conversationId,taskId: res.taskCode, freelancer: proposal.freelancerUserId,alias: res.otherPartyAlias }
+        queryParams: { conversationId: res.conversationId,taskId: this.task()!.taskId, freelancer: proposal.freelancerUserId,alias: res.otherPartyAlias }
       });
     },
     error: () => this.toast.error('Could not open chat')
@@ -409,15 +409,17 @@ chatFromModal() {
   const v = this.viewingProfile();
   if (!v) return;
   this.viewingProfile.set(null);
-  this.http.post(`${environment.apiUrl}/chat/conversation/open`, {
+  this.http.post<{ conversationId: string; taskCode: string; otherPartyAlias: string }>(`${environment.apiUrl}/chat/conversation/open`, {
     taskId: this.task()!.taskId,
     freelancerUserId: v.freelancerUserId
   }).subscribe({
-    next: () => {
+    next: (res) => {
       this.router.navigate(['/chat/inbox'], {
         queryParams: {
+          conversationId: res.conversationId,
           taskId:     this.task()!.taskId,
-          freelancer: v.freelancerUserId
+          freelancer: v.freelancerUserId,
+          alias: res.otherPartyAlias
         }
       });
     }
