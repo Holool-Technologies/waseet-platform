@@ -43,12 +43,13 @@ public class KycService : IKycService
         var existing = await _db.KycRecords
             .FirstOrDefaultAsync(k => k.UserId == userId, ct);
 
-        if (existing is not null)
+        if (existing is not null && existing.Status == Domain.Enums.KycStatus.Approved)
             throw new InvalidOperationException("KYC already submitted.");
 
         var blobRef = await _storage.UploadAsync(docStream, fileName, contentType, ct);
         var encryptedName = _encryption.Encrypt(fullName);
-
+        //_db.KycRecords.RemoveRange(_db.KycRecords.Where(k => k.UserId == userId)); // Remove old records if any
+        //await _db.SaveChangesAsync(ct); // Ensure old records are removed before adding new one
         var record = new KycRecord
         {
             UserId = userId,

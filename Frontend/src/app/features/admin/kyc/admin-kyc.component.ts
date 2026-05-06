@@ -204,7 +204,8 @@ export class AdminKycComponent implements OnInit {
   }
 
   getDocUrl(blobRef: string): string {
-    return `${environment.apiUrl.replace('/api', '')}/api/admin/kyc-doc/${blobRef}`;
+
+    return `${environment.apiUrl.replace('/api', '')}/${blobRef}`;
   }
 
   getSafePdfUrl(blobRef: string): SafeResourceUrl {

@@ -131,7 +131,12 @@ public class AdminService : IAdminService
             : Domain.Enums.KycStatus.Rejected;
         record.VerifiedAt = DateTime.UtcNow;
         record.User.KycStatus = record.Status;
+        if(record.User.KycStatus==Domain.Enums.KycStatus.Rejected)
+        {
+            _db.KycRecords.Remove(record);
+            await _db.SaveChangesAsync(ct);
 
+        }
         await _db.SaveChangesAsync(ct);
     }
 
