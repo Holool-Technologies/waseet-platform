@@ -5,7 +5,16 @@ import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-
+import { DomSanitizer} from '@angular/platform-browser';
+interface Kyc {
+  kycId: string;
+  userId: string;
+  userEmail: string;
+  status: string;
+  documentBlobRef: string;
+  submittedAt: string;
+  verifiedAt?: string;
+}
 @Component({
   selector: 'app-kyc',
   standalone: true,
@@ -40,9 +49,40 @@ import { environment } from '../../../environments/environment';
               <div class="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-6 text-center cursor-pointer hover:border-primary-400 transition-colors"
                    (click)="fileInput.click()">
                 <input #fileInput type="file" class="hidden" accept=".jpg,.jpeg,.png,.pdf" (change)="onFile($event)" />
-                @if (fileName()) {
-                  <p class="text-sm text-primary-500 font-medium">{{ fileName() }}</p>
-                } @else {
+            @if (fileName()) {
+              <!-- Document preview -->
+              <div class="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-100 dark:border-neutral-800 p-3">
+                <div class="flex items-center justify-between mb-2">
+                  <p class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                    وثيقة الهوية
+                  </p>
+                </div>
+
+                <!-- Image preview -->
+                @if (isImage(file()!)) {
+                  <div class="relative rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-900"
+                    style="height: 200px">
+                    <img
+                      [src]="file() ? getSafeUrl(file()!):null"
+                      alt="Identity document"
+                      class="w-full h-full object-contain cursor-pointer"
+                      (error)="onImgError($event)" />
+                  </div>
+                }
+
+                <!-- PDF preview -->
+                @if (isPdf(file()!)) {
+                  <div class="rounded-xl overflow-hidden bg-neutral-100" style="height:200px">
+                    <iframe
+                      [src]="getSafePdfUrl(file()!)"
+                      class="w-full h-full"
+                      frameborder="0"
+                      title="Identity document PDF">
+                    </iframe>
+                  </div>
+                }
+              </div>
+            } @else {
                   <p class="text-sm text-gray-400">Click to upload JPG, PNG or PDF</p>
                 }
               </div>
@@ -63,6 +103,8 @@ export class KycComponent {
   private fb = inject(FormBuilder);
   private http = inject(HttpClient);
   private router = inject(Router);
+  private sanitizer    = inject(DomSanitizer);
+  lightboxKyc  = signal<Kyc | null>(null);
 
   loading = signal(false);
   error = signal('');
@@ -78,7 +120,26 @@ export class KycComponent {
     const f = (event.target as HTMLInputElement).files?.[0];
     if (f) { this.file.set(f); this.fileName.set(f.name); }
   }
+ isImage(file: File | undefined): boolean {
+    return file ? /\.(jpg|jpeg|png|webp)$/i.test(file.name) : false;
+  }
 
+  isPdf(file: File | undefined): boolean {
+    return file ? /\.pdf$/i.test(file.name) : false;
+  }
+   openLightbox(kyc: Kyc) { this.lightboxKyc.set(kyc); }
+  
+    onImgError(e: Event) {
+      (e.target as HTMLImageElement).style.display = 'none';
+    }
+    getSafeUrl(file: File) {
+      const url = URL.createObjectURL(file);
+      return this.sanitizer.bypassSecurityTrustUrl(url);
+    }
+    getSafePdfUrl(file: File) {
+      const url = URL.createObjectURL(file);
+      return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+    }
   submit() {
     if (this.form.invalid || !this.file()) return;
     this.loading.set(true);

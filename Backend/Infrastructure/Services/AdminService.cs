@@ -1,7 +1,8 @@
-using Microsoft.EntityFrameworkCore;
 using Application.Features.Admin.DTOs;
 using Application.Features.Admin.Interfaces;
+using Application.Features.Notifications.Interfaces;
 using Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Services;
 
@@ -9,11 +10,14 @@ public class AdminService : IAdminService
 {
     private readonly WaseetDbContext _db;
     private readonly EncryptionService _encryption;
+    private readonly INotificationService _notifications;
 
-    public AdminService(WaseetDbContext db, EncryptionService encryption)
+    public AdminService(WaseetDbContext db, EncryptionService encryption, INotificationService notifications)
     {
         _db = db;
         _encryption = encryption;
+        _notifications = notifications;
+
     }
 
     public async Task<DashboardStatsResponse> GetStatsAsync(CancellationToken ct = default)
@@ -129,15 +133,40 @@ public class AdminService : IAdminService
         record.Status = decision.ToLower() == "approve"
             ? Domain.Enums.KycStatus.Approved
             : Domain.Enums.KycStatus.Rejected;
+
         record.VerifiedAt = DateTime.UtcNow;
         record.User.KycStatus = record.Status;
-        if(record.User.KycStatus==Domain.Enums.KycStatus.Rejected)
+        if (record.User.KycStatus == Domain.Enums.KycStatus.Rejected)
         {
             _db.KycRecords.Remove(record);
             await _db.SaveChangesAsync(ct);
 
         }
         await _db.SaveChangesAsync(ct);
+
+        // ? Notify the USER whose KYC was decided — NOT the admin
+        if (record.Status == Domain.Enums.KycStatus.Approved)
+        {
+            await _notifications.CreateAndPushAsync(
+                record.UserId,  // <-- the freelancer/client, NOT adminId
+                Domain.Enums.NotificationType.KycApproved,
+                "Identity Verified",
+                "Êã ÇáÊÍÞÞ ãä åæíÊß",
+                "Your identity has been verified. You can now post and bid on tasks.",
+                "Êã ÇáÊÍÞÞ ãä åæíÊß. íãßäß ÇáÂä äÔÑ ÇáãåÇã æÇáãÒÇíÏÉ ÚáíåÇ.",
+                kycId.ToString(), "/kyc", ct);
+        }
+        else
+        {
+            await _notifications.CreateAndPushAsync(
+                record.UserId,  // <-- the user, NOT admin
+                Domain.Enums.NotificationType.KycRejected,
+                "Verification Failed",
+                "ÝÔá ÇáÊÍÞÞ ãä ÇáåæíÉ",
+                "Your identity verification was not approved. Please resubmit with clearer documents.",
+                "áã ÊÊã ÇáãæÇÝÞÉ Úáì ÇáÊÍÞÞ ãä åæíÊß. íÑÌì ÅÚÇÏÉ ÇáÊÞÏíã ÈãÓÊäÏÇÊ ÃæÖÍ.",
+                kycId.ToString(), "/kyc", ct);
+        }
     }
 
     public async Task<AdminPagedResult<AdminTaskResponse>> GetTasksAsync(
