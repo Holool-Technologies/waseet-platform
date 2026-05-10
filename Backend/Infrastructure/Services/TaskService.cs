@@ -5,7 +5,7 @@ using Domain.Enums;
 using Infrastructure.Persistence;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Waseet.Application.Features.Tasks.Interfaces;
+using Application.Features.Tasks.Interfaces;
 using Task = Domain.Entities.Task;
 using TaskStatus = Domain.Enums.TaskStatus;
 

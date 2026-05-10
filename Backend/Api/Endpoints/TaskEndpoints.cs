@@ -1,6 +1,6 @@
 ﻿using Application.Features.Tasks.DTOs;
 using System.Security.Claims;
-using Waseet.Application.Features.Tasks.Interfaces;
+using Application.Features.Tasks.Interfaces;
 
 namespace Api.Endpoints;
 

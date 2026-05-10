@@ -12,7 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Waseet.Application.Features.Tasks.Interfaces;
+using Application.Features.Tasks.Interfaces;
 
 
 namespace Infrastructure;
@@ -23,32 +23,52 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        // ── Database ──────────────────────────────────────────────────────────
         services.AddDbContext<WaseetDbContext>(options =>
             options.UseSqlServer(
                 configuration.GetConnectionString("WaseetDb"),
-                sql => sql.MigrationsAssembly(typeof(WaseetDbContext).Assembly.FullName)
-            ));
+                sql => sql.MigrationsAssembly(
+                    typeof(WaseetDbContext).Assembly.FullName)));
 
-        services.Configure<JwtSettings>(
-            configuration.GetSection("JwtSettings"));
+        // ── HTTP clients ──────────────────────────────────────────────────────
+        // Named client for Gemini — pre-configured with timeout
+        services.AddHttpClient("Gemini", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+        });
 
+        // Generic client for Resend email
+        services.AddHttpClient("Resend", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+
+        // ── AI services ───────────────────────────────────────────────────────
+        // Singleton: stateless, thread-safe, expensive to construct
+        services.AddSingleton<IAiSanitizerService, AiSanitizerService>();
+        services.AddSingleton<BioFilterService>();
+        services.AddSingleton<IVisionService, AzureVisionService>();
+
+        // ── Encryption + storage ──────────────────────────────────────────────
+        services.AddSingleton<EncryptionService>();
+        services.AddSingleton<IFileStorageService, LocalFileStorageService>();
+
+        // ── Domain services ───────────────────────────────────────────────────
         services.AddScoped<IAuthService, AuthService>();
-	    services.AddScoped<IKycService, KycService>();
-	    services.AddSingleton<EncryptionService>();
-    	services.AddSingleton<IFileStorageService, LocalFileStorageService>();
-        services.AddScoped<TaskCodeGenerator>();
+        services.AddScoped<IKycService, KycService>();
         services.AddScoped<ITaskService, TaskService>();
         services.AddScoped<IChatService, ChatService>();
-        services.AddSingleton<IAiSanitizerService, AiSanitizerService>();
-        // Add HttpClient for Resend
-        services.AddHttpClient("Resend");
-	    services.AddScoped<IEmailService, ResendEmailService>();
         services.AddScoped<IAdminService, AdminService>();
-        services.AddSingleton<IVisionService, AzureVisionService>();
-        services.AddSingleton<BioFilterService>();
-        services.AddScoped<ProfileService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IEmailService, ResendEmailService>();
+        services.AddScoped<ProfileService>();
+        services.AddScoped<TaskCodeGenerator>();
         services.AddScoped<AnonymousNameService>();
+
+        // ── JWT settings ──────────────────────────────────────────────────────
+        services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
+        services.AddScoped<JwtSettings>();
 
         var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
         var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
@@ -60,6 +80,7 @@ public static class DependencyInjection
         })
         .AddJwtBearer(options =>
         {
+            options.MapInboundClaims = false;
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -72,29 +93,27 @@ public static class DependencyInjection
                 ClockSkew = TimeSpan.Zero
             };
 
-            // Allow SignalR to read JWT from query string
+            // Allow SignalR to receive JWT from query string
             options.Events = new JwtBearerEvents
             {
                 OnMessageReceived = context =>
                 {
-                    var accessToken = context.Request.Query["access_token"];
+                    var token = context.Request.Query["access_token"];
                     var path = context.HttpContext.Request.Path;
-                    if (!string.IsNullOrEmpty(accessToken) &&
+                    if (!string.IsNullOrEmpty(token) &&
                         path.StartsWithSegments("/hubs"))
-                    {
-                        context.Token = accessToken;
-                    }
+                        context.Token = token;
                     return Task.CompletedTask;
                 }
             };
-	   options.MapInboundClaims = false;
         });
 
         services.AddAuthorization(options =>
-{
-    options.AddPolicy("AdminOnly", policy =>
-        policy.RequireClaim("role", "Admin"));
-});
+        {
+            options.AddPolicy("AdminOnly", policy =>
+                policy.RequireClaim("role", "Admin"));
+        });
+
         return services;
     }
 }

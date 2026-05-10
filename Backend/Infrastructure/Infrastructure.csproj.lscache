@@ -99,6 +99,7 @@ Services/
  BioFilterService.cs
  ChatService.cs.cs
  EncryptionService.cs
+ Gemini/GeminiModels.cs
  JwtSettings.cs
  KycService.cs
  LocalFileStorageService.cs

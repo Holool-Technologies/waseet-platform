@@ -1,7 +1,7 @@
 using Application.Features.Tasks.DTOs;
 
 
-namespace Waseet.Application.Features.Tasks.Interfaces;
+namespace Application.Features.Tasks.Interfaces;
 
 public interface ITaskService
 {

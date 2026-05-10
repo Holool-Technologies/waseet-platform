@@ -2,7 +2,7 @@ using Application.Features.Admin.DTOs;
 using Application.Features.Admin.Interfaces;
 using Azure.Core;
 using Infrastructure.Services;
-using Waseet.Application.Features.Tasks.Interfaces;
+using Application.Features.Tasks.Interfaces;
 
 namespace Api.Endpoints;
 
