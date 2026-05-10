@@ -86,38 +86,38 @@ public class WaseetHub : Hub
     }
 
     // ── Send first message (creates conversation lazily) ──────
-    public async Task SendFirstMessage(
-        string taskId, string freelancerUserId, string content)
-    {
-        if (string.IsNullOrWhiteSpace(content) || content.Length > 2000) return;
+    //public async Task SendFirstMessage(
+    //    string taskId, string freelancerUserId, string content)
+    //{
+    //    if (string.IsNullOrWhiteSpace(content) || content.Length > 2000) return;
 
-        var userId = GetUserId();
-        if (userId == Guid.Empty) return;
+    //    var userId = GetUserId();
+    //    if (userId == Guid.Empty) return;
 
-        if (!Guid.TryParse(taskId, out var taskGuid)) return;
-        if (!Guid.TryParse(freelancerUserId, out var freelancerGuid)) return;
+    //    if (!Guid.TryParse(taskId, out var taskGuid)) return;
+    //    if (!Guid.TryParse(freelancerUserId, out var freelancerGuid)) return;
 
-        try
-        {
-            var message = await _chatService.ProcessFirstMessageAsync(
-                userId, taskGuid, freelancerGuid, content);
+    //    try
+    //    {
+    //        var message = await _chatService.ProcessFirstMessageAsync(
+    //            userId, taskGuid, freelancerGuid, content);
 
-            if (message.Blocked)
-            {
-                await Clients.Caller.SendAsync("MessageBlocked",
-                    "Your message was blocked.");
-                return;
-            }
+    //        if (message.Blocked)
+    //        {
+    //            await Clients.Caller.SendAsync("MessageBlocked",
+    //                "Your message was blocked.");
+    //            return;
+    //        }
 
-            await Clients.Group($"conv:{message.ConversationId}")
-                .SendAsync("ReceiveMessage", message);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "SendFirstMessage failed");
-            await Clients.Caller.SendAsync("Error", "Send failed.");
-        }
-    }
+    //        await Clients.Group($"conv:{message.ConversationId}")
+    //            .SendAsync("ReceiveMessage", message);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "SendFirstMessage failed");
+    //        await Clients.Caller.SendAsync("Error", "Send failed.");
+    //    }
+    //}
 
     public async Task Typing(string conversationId)
     {

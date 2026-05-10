@@ -166,52 +166,52 @@ public class ChatService : IChatService
     /// <summary>
     /// Creates conversation lazily on first message.
     /// </summary>
-    public async Task<ChatMessageResponse> ProcessFirstMessageAsync(
-        Guid senderUserId,
-        Guid taskId,
-        Guid freelancerUserId,
-        string rawContent,
-        CancellationToken ct = default)
-    {
-        var task = await _db.Tasks
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.TaskId == taskId, ct)
-            ?? throw new KeyNotFoundException("Task not found.");
+    //public async Task<ChatMessageResponse> ProcessFirstMessageAsync(
+    //    Guid senderUserId,
+    //    Guid taskId,
+    //    Guid freelancerUserId,
+    //    string rawContent,
+    //    CancellationToken ct = default)
+    //{
+    //    var task = await _db.Tasks
+    //        .AsNoTracking()
+    //        .FirstOrDefaultAsync(t => t.TaskId == taskId, ct)
+    //        ?? throw new KeyNotFoundException("Task not found.");
 
-        // Determine roles
-        Guid clientId, flId;
-        if (task.ClientUserId == senderUserId)
-        {
-            clientId = senderUserId;
-            flId = freelancerUserId;
-        }
-        else
-        {
-            clientId = task.ClientUserId;
-            flId = senderUserId;
-        }
+    //    // Determine roles
+    //    Guid clientId, flId;
+    //    if (task.ClientUserId == senderUserId)
+    //    {
+    //        clientId = senderUserId;
+    //        flId = freelancerUserId;
+    //    }
+    //    else
+    //    {
+    //        clientId = task.ClientUserId;
+    //        flId = senderUserId;
+    //    }
 
-        // Create conversation if not exists
-        var convId = DeterministicGuid(taskId, clientId, flId);
-        var conv = await _db.ChatConversations
-            .FirstOrDefaultAsync(c => c.ConversationId == convId, ct);
+    //    // Create conversation if not exists
+    //    var convId = DeterministicGuid(taskId, clientId, flId);
+    //    var conv = await _db.ChatConversations
+    //        .FirstOrDefaultAsync(c => c.ConversationId == convId, ct);
 
-        if (conv is null)
-        {
-            conv = new ChatConversation
-            {
-                ConversationId = convId,
-                TaskId = taskId,
-                ClientUserId = clientId,
-                FreelancerUserId = flId,
-                HasMessages = false
-            };
-            _db.ChatConversations.Add(conv);
-            await _db.SaveChangesAsync(ct);
-        }
+    //    if (conv is null)
+    //    {
+    //        conv = new ChatConversation
+    //        {
+    //            ConversationId = convId,
+    //            TaskId = taskId,
+    //            ClientUserId = clientId,
+    //            FreelancerUserId = flId,
+    //            HasMessages = false
+    //        };
+    //        _db.ChatConversations.Add(conv);
+    //        await _db.SaveChangesAsync(ct);
+    //    }
 
-        return await ProcessAndSaveAsync(senderUserId, convId, rawContent, ct);
-    }
+    //    return await ProcessAndSaveAsync(senderUserId, convId, rawContent, ct);
+    //}
 
     /// <summary>
     /// Get message history scoped to ONE conversation (client + specific bidder).

@@ -217,18 +217,16 @@ ngOnInit() {
     next: c => {
       this.conversations.set(c);
       this.loading.set(false);
-    },
-    error: () => this.loading.set(false)
-  });
-
-  // Handle query params for opening conversations
-  this.route.queryParamMap.subscribe(params => {
-    const convId = params.get('conversationId');
-    if (convId) {
+       // Handle query params for opening conversations
+      this.route.queryParamMap.subscribe(params => {
+      const convId = params.get('conversationId');
+    
+      if (convId) {
       const match = this.conversations().find(x => x.conversationId === convId);
+
       if (match) {
         this.selectConversation(match);
-      } else {       
+       } else {       
         // Conversation exists but has no messages yet — show empty chat
         // Get conversation details from query params
         const taskId     = params.get('taskId');
@@ -251,6 +249,11 @@ ngOnInit() {
       this.newConversation.set(null);
     }
   });
+    },
+    error: () => this.loading.set(false)
+  });
+
+ 
 }
 
   selectConversation(conv: Conversation) {

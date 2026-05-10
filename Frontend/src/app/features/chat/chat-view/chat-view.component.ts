@@ -231,9 +231,10 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
   }
 
   private async init() {
-    console.log(JSON.stringify({ conversationId: this.conversationId, taskId: this.taskId, freelancerUserId: this.freelancerUserId, isFirstMessage: this.isFirstMessage }));
+    // alert(JSON.stringify({ conversationId: this.conversationId, taskId: this.taskId, freelancerUserId: this.freelancerUserId, isFirstMessage: this.isFirstMessage }));
 
     if (!this.conversationId) return;
+    // alert(JSON.stringify({ conversationId: this.conversationId, taskId: this.taskId, freelancerUserId: this.freelancerUserId, isFirstMessage: this.isFirstMessage }));
 
     await this.hub.connect();
     await this.hub.joinConversation(this.conversationId);

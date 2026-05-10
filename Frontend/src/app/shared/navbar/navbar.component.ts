@@ -40,12 +40,6 @@ import { HubService } from '../../core/services/hub.service';
                   {{ 'nav.dashboard' | translate }}
                 </a>
               }
-              @if (auth.isLoggedIn() && auth.isClient()) {
-                <a routerLink="/my-tasks" routerLinkActive="text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20"
-                  class="px-3 py-2 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-brand-600 hover:bg-brand-50 transition-all">
-                  My Tasks
-                </a>
-              }
             } @else {
               <!-- Admin sees admin link only -->
               <a routerLink="/admin"

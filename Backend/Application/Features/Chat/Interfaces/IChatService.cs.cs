@@ -12,9 +12,9 @@ public interface IChatService
         Guid senderUserId, Guid conversationId, string rawContent,
         CancellationToken ct = default);
 
-    Task<ChatMessageResponse> ProcessFirstMessageAsync(
-        Guid senderUserId, Guid taskId, Guid freelancerUserId,
-        string rawContent, CancellationToken ct = default);
+    //Task<ChatMessageResponse> ProcessFirstMessageAsync(
+    //    Guid senderUserId, Guid taskId, Guid freelancerUserId,
+    //    string rawContent, CancellationToken ct = default);
 
     Task<IEnumerable<ChatMessageResponse>> GetHistoryAsync(
         Guid conversationId, Guid requestingUserId,
