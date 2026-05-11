@@ -329,7 +329,36 @@ public class ChatService : IChatService
         if (!hasBid && task.FreelancerUserId != freelancerId)
             throw new InvalidOperationException("Freelancer has not bid on this task.");
     }
+    /// <summary>
+    /// Resets the unread counter for the given user in a conversation.
+    /// Called when the user opens and reads the conversation.
+    /// Persists to DB so refresh does not restore the count.
+    /// </summary>
+    public async Task MarkConversationReadAsync(
+        Guid conversationId,
+        Guid userId,
+        CancellationToken ct = default)
+    {
+        var conv = await _db.ChatConversations
+            .FirstOrDefaultAsync(c => c.ConversationId == conversationId, ct);
 
+        if (conv is null) return;
+
+        bool isClient = conv.ClientUserId == userId;
+        bool isFreelancer = conv.FreelancerUserId == userId;
+
+        if (!isClient && !isFreelancer) return; // not a party — ignore silently
+
+        if (isClient && conv.ClientUnreadCount == 0) return; // already zero
+        if (isFreelancer && conv.FreelancerUnreadCount == 0) return; // already zero
+
+        if (isClient)
+            conv.ClientUnreadCount = 0;
+        else
+            conv.FreelancerUnreadCount = 0;
+
+        await _db.SaveChangesAsync(ct);
+    }
     // Deterministic GUID from three GUIDs — same input always produces same output
     private static Guid DeterministicGuid(Guid taskId, Guid clientId, Guid freelancerId)
     {

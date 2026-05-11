@@ -129,4 +129,13 @@ export class ChatService {
       error: () => {}
     });
   }
+  markConversationRead(conversationId: string): void {
+  // Fire-and-forget — don't block UI on this
+  this.http.post(
+    `${environment.apiUrl}/chat/conversation/${conversationId}/read`,
+    {}
+  ).subscribe({
+    error: (err) => console.warn('Failed to mark conversation read:', err)
+  });
+}
 }

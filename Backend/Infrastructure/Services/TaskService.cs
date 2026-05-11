@@ -190,7 +190,7 @@ public class TaskService : ITaskService
         var proposals = await _db.Proposals
             .AsNoTracking()
             .Where(p => p.TaskId == task.TaskId)
-            .OrderByDescending(p => p.SubmittedAt)
+            .OrderBy(p => p.SubmittedAt)
             .ToListAsync(ct);
 
         // Get verification status for all bidders in one query

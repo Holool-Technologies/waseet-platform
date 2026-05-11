@@ -181,16 +181,32 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
 
   // Named handlers
   private onMessage = (msg: ChatMsg) => {
-    if (this.seenIds.has(msg.messageId)) return;
-    // Only accept messages for THIS conversation
-    if (msg.conversationId !== this.conversationId) return;
-    this.seenIds.add(msg.messageId);
-    this.messages.update(m => [...m, msg]);
-    this.shouldScroll = true;
-    // Fix infinite loading — clear sending on message received
-    this.sending.set(false);
-    clearTimeout(this.sendTimeout);
-  };
+  if (this.seenIds.has(msg.messageId)) return;
+  if (msg.conversationId !== this.conversationId) return;
+
+  this.seenIds.add(msg.messageId);
+  this.messages.update(m => [...m, msg]);
+  this.shouldScroll = true;
+  this.sending.set(false);
+  clearTimeout(this.sendTimeout);
+
+  // If the message is from the other party and the chat is open,
+  // immediately mark it as read so the counter stays zero
+  if (!this.isMine(msg)) {
+    this.markRead();
+  }
+};
+
+// Add this method to ChatViewComponent:
+ private markRead(): void {
+   if (!this.conversationId) return;
+   this.http.post(
+    `${environment.apiUrl}/chat/conversation/${this.conversationId}/read`,
+    {}
+  ).subscribe({
+    error: err => console.warn('Mark read on receive failed:', err)
+  });
+}
 
   private onTyping = (convId: string) => {
     if (convId !== this.conversationId) return;

@@ -261,6 +261,15 @@ ngOnInit() {
     // Clear unread
     this.conversations.update(cs =>
       cs.map(c => c.conversationId === conv.conversationId ? { ...c, unreadCount: 0 } : c));
+      // Persist to backend so refresh doesn't restore the count
+  if (conv.unreadCount > 0) {
+    this.http.post(
+      `${environment.apiUrl}/chat/conversation/${conv.conversationId}/read`,
+      {}
+    ).subscribe({
+      error: err => console.warn('Mark read failed:', err)
+    });
+  }
   }
 
   formatTime(dateStr: string): string {

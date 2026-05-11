@@ -26,4 +26,8 @@ public interface IChatService
     Task EnsureConversationAsync(
         Guid taskId, Guid clientId, Guid freelancerId,
         CancellationToken ct = default);
+    Task MarkConversationReadAsync(
+    Guid conversationId,
+    Guid userId,
+    CancellationToken ct = default);
 }

@@ -77,6 +77,18 @@ public static class ChatEndpoints
             var inbox = await chatService.GetInboxAsync(userId, ct);
             return Results.Ok(inbox);
         });
+
+        // Mark conversation as read — called when user opens a conversation
+        group.MapPost("/conversation/{conversationId:guid}/read", async (
+            Guid conversationId,
+            IChatService chatService,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var userId = GetUserId(user);
+            await chatService.MarkConversationReadAsync(conversationId, userId, ct);
+            return Results.NoContent();
+        });
     }
 
     private static Guid GetUserId(ClaimsPrincipal user) =>
