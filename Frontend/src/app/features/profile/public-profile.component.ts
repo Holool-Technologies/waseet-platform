@@ -113,25 +113,34 @@ interface PublicPortfolioItem {
                 <h2 class="text-lg font-semibold text-neutral-900 dark:text-white mb-5">
                   Portfolio
                   <span class="text-sm font-normal text-neutral-400 ms-2">
-                    {{ approvedPortfolio().length }} work{{ approvedPortfolio().length !== 1 ? 's' : '' }}
+                    {{ approvedPortfolio().length }}
+                    work{{ approvedPortfolio().length !== 1 ? 's' : '' }}
                   </span>
                 </h2>
 
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   @for (item of approvedPortfolio(); track item.itemId) {
                     <div
-                      class="relative group rounded-2xl overflow-hidden aspect-square bg-neutral-100 dark:bg-neutral-800 cursor-pointer"
+                      class="relative group rounded-2xl overflow-hidden aspect-square
+                             bg-neutral-100 dark:bg-neutral-800 cursor-pointer"
                       (click)="openImage(item)">
 
                       <img
-                        [src]="item.imageUrl"
+                        [src]="resolveUrl(item.imageUrl)"
                         [alt]="item.caption || 'Portfolio image'"
-                        class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        loading="lazy" />
+                        class="w-full h-full object-cover transition-transform
+                               duration-300 group-hover:scale-105"
+                        loading="lazy"
+                        (error)="onImgError($event)" />
 
                       @if (item.caption) {
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                          <p class="text-white text-xs font-medium line-clamp-2">{{ item.caption }}</p>
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/60
+                                    via-transparent to-transparent opacity-0
+                                    group-hover:opacity-100 transition-opacity
+                                    flex items-end p-3">
+                          <p class="text-white text-xs font-medium line-clamp-2">
+                            {{ item.caption }}
+                          </p>
                         </div>
                       }
                     </div>
@@ -156,16 +165,23 @@ interface PublicPortfolioItem {
       <div
         class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
         (click)="lightboxImage.set(null)">
-        <div class="relative max-w-4xl max-h-full" (click)="$event.stopPropagation()">
-          <img [src]="lightboxImage()!.imageUrl"
+        <div class="relative max-w-4xl max-h-full"
+          (click)="$event.stopPropagation()">
+          <img
+            [src]="resolveUrl(lightboxImage()!.imageUrl)"
             [alt]="lightboxImage()!.caption"
             class="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl" />
           @if (lightboxImage()!.caption) {
-            <p class="text-white text-sm text-center mt-3 opacity-80">{{ lightboxImage()!.caption }}</p>
+            <p class="text-white text-sm text-center mt-3 opacity-80">
+              {{ lightboxImage()!.caption }}
+            </p>
           }
           <button
             (click)="lightboxImage.set(null)"
-            class="absolute -top-3 -end-3 w-8 h-8 bg-white dark:bg-neutral-800 rounded-full flex items-center justify-center text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 shadow-lg transition-colors text-sm font-bold">
+            class="absolute -top-3 -end-3 w-8 h-8 bg-white dark:bg-neutral-800
+                   rounded-full flex items-center justify-center text-neutral-700
+                   dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700
+                   shadow-lg transition-colors text-sm font-bold">
             ✕
           </button>
         </div>
@@ -177,10 +193,14 @@ export class PublicProfileComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private http  = inject(HttpClient);
 
-  profile  = signal<PublicProfile | null>(null);
-  loading  = signal(true);
-  error    = signal(false);
+  profile       = signal<PublicProfile | null>(null);
+  loading       = signal(true);
+  error         = signal(false);
   lightboxImage = signal<PublicPortfolioItem | null>(null);
+
+  // Base URL for static files — strips /api from the apiUrl
+  // e.g. "http://localhost:5294/api" → "http://localhost:5294"
+  private readonly staticBase = environment.apiUrl.replace(/\/api$/, '');
 
   approvedPortfolio = () =>
     this.profile()?.portfolio?.filter(i => i.status === 'Approved') ?? [];
@@ -192,12 +212,40 @@ export class PublicProfileComponent implements OnInit {
     this.http.get<PublicProfile>(
       `${environment.apiUrl}/profile/${userId}/public`
     ).subscribe({
-      next:  p => { this.profile.set(p);    this.loading.set(false); },
-      error: () => { this.error.set(true);  this.loading.set(false); }
+      next:  p => { this.profile.set(p);   this.loading.set(false); },
+      error: () => { this.error.set(true); this.loading.set(false); }
     });
   }
 
-  openImage(item: PublicPortfolioItem) {
+  /**
+   * Resolves any imageUrl format to an absolute URL:
+   *  - already absolute:  "http://localhost:5294/kyc-docs/x.png" → unchanged
+   *  - root-relative:     "/kyc-docs/x.png" → "http://localhost:5294/kyc-docs/x.png"
+   *  - api-prefixed:      "/api/files/kyc-docs/x.png" → "http://localhost:5294/kyc-docs/x.png"
+   *  - bare path:         "kyc-docs/x.png" → "http://localhost:5294/kyc-docs/x.png"
+   */
+  resolveUrl(imageUrl: string): string {
+    if (!imageUrl) return '';
+
+    // Already a full URL — return as-is
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))
+      return imageUrl;
+
+    // Strip legacy "/api/files/" prefix if present
+    const stripped = imageUrl.replace(/^\/api\/files\//, '');
+
+    // Ensure single leading slash and combine with static base
+    const path = stripped.startsWith('/') ? stripped : `/${stripped}`;
+    return `${this.staticBase}${path}`;
+  }
+
+  onImgError(event: Event): void {
+    // Replace broken image with a placeholder
+    const img = event.target as HTMLImageElement;
+    img.style.display = 'none';
+  }
+
+  openImage(item: PublicPortfolioItem): void {
     this.lightboxImage.set(item);
   }
 }

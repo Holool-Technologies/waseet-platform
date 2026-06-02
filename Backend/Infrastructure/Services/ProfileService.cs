@@ -128,7 +128,7 @@ public class ProfileService
 
         // Upload to storage
         var blobRef = await _storage.UploadAsync(ms, fileName, contentType, ct);
-        var imageUrl = $"/api/files/{blobRef}";
+        var imageUrl = $"/{blobRef}";
 
         var item = new PortfolioItem
         {

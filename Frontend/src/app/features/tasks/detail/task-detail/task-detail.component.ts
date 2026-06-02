@@ -281,7 +281,7 @@ import { environment } from '../../../../../environments/environment';
                     <div class="grid grid-cols-3 gap-2">
                       @for (item of viewingProfile()!.profile.portfolio; track item.itemId) {
                         <div class="aspect-square rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-800">
-                          <img [src]="item.imageUrl" [alt]="item.caption"
+                          <img [src]="resolveUrl(item.imageUrl)" [alt]="item.caption"
                             class="w-full h-full object-cover" loading="lazy" />
                         </div>
                       }
@@ -350,7 +350,16 @@ export class TaskDetailComponent implements OnInit {
   });
   
 }
+private readonly staticBase = environment.apiUrl.replace(/\/api$/, '');
 
+resolveUrl(imageUrl: string): string {
+  if (!imageUrl) return '';
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))
+    return imageUrl;
+  const stripped = imageUrl.replace(/^\/api\/files\//, '');
+  const path = stripped.startsWith('/') ? stripped : `/${stripped}`;
+  return `${this.staticBase}${path}`;
+}
 private loadProposals(code: string) {
   const userId = this.auth.currentUser()?.userId;
   this.taskService.getProposals(code).subscribe({

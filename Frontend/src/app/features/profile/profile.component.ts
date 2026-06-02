@@ -160,7 +160,7 @@ interface PortfolioItem {
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
               @for (item of profile()!.portfolio; track item.itemId) {
                 <div class="relative group rounded-2xl overflow-hidden aspect-square bg-neutral-100 dark:bg-neutral-800">
-                  <img [src]="item.imageUrl" [alt]="item.caption"
+                  <img [src]="resolveUrl(item.imageUrl)" [alt]="item.caption"
                     class="w-full h-full object-cover" />
 
                   <!-- Status overlay -->
@@ -186,6 +186,7 @@ interface PortfolioItem {
   `
 })
 export class ProfileComponent implements OnInit {
+  
   private http  = inject(HttpClient);
   private auth  = inject(AuthService);
   private toast = inject(ToastService);
@@ -200,7 +201,17 @@ export class ProfileComponent implements OnInit {
   editBio   = '';
   editTitle = '';
   editSkills = '';
+// Add to ProfileComponent class:
+private readonly staticBase = environment.apiUrl.replace(/\/api$/, '');
 
+resolveUrl(imageUrl: string): string {
+  if (!imageUrl) return '';
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))
+    return imageUrl;
+  const stripped = imageUrl.replace(/^\/api\/files\//, '');
+  const path = stripped.startsWith('/') ? stripped : `/${stripped}`;
+  return `${this.staticBase}${path}`;
+}
   ngOnInit() { this.load(); }
 
   load() {
