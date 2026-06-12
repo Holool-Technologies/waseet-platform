@@ -19,8 +19,8 @@ import { HubService } from '../../core/services/hub.service';
 
           <!-- Logo -->
           <a routerLink="/" class="flex items-center gap-2.5 flex-shrink-0">
-            <div class="w-9 h-9 bg-gradient-to-br from-brand-500 to-brand-700 rounded-xl flex items-center justify-center shadow-glow">
-              <span class="text-white font-bold text-base">و</span>
+            <div>
+              <img src="assets/images/waseet-logo.svg" alt="Waseet Logo" class="w-5 h-5">
             </div>
             <span class="font-bold text-lg text-neutral-900 dark:text-white hidden sm:block">
               Waseet

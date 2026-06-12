@@ -1,5 +1,4 @@
-﻿using System.Net.Http.Json;
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
@@ -10,12 +9,9 @@ using Infrastructure.Services.Gemini;
 namespace Infrastructure.Services;
 
 /// <summary>
-/// Production-grade message sanitizer using:
-/// 1. Regex first pass  — free, instant, no network
-/// 2. Gemini 2.0 Flash  — deep semantic PII + social language removal
-/// 3. Regex fallback    — if Gemini is unavailable or returns invalid response
-///
-/// Uses HttpClient only — no OpenAI or Azure SDK dependencies.
+/// Message sanitizer using Gemini 2.0 Flash only.
+/// No regex pre-filter — Gemini handles everything.
+/// Falls back to passing the message through unchanged if Gemini is unavailable.
 /// </summary>
 public class AiSanitizerService : IAiSanitizerService
 {
@@ -25,47 +21,60 @@ public class AiSanitizerService : IAiSanitizerService
     private readonly bool _aiEnabled;
     private readonly ILogger<AiSanitizerService> _logger;
 
-    // ── Gemini endpoint template ──────────────────────────────────────────────
     private const string EndpointTemplate =
         "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
 
-    // ── System prompt ─────────────────────────────────────────────────────────
-    // Instructs Gemini to act as a strict identity-neutral sanitizer.
-    // The output format is enforced via responseMimeType = "application/json".
     private const string SystemPrompt = """
         You are a strict identity-neutral communication sanitizer for a double-blind freelance platform.
         Your ONLY job is to sanitize messages so users cannot identify, emotionally bond with, or socially interact with each other outside professional task communication.
-        Rules (apply to ALL languages, especially Arabic dialects):
+
+        Rules (apply to ALL languages, especially Arabic and its dialects):
 
         1. Remove all personal identity indicators:
-           - names, usernames, emails, phone numbers, social handles, company names, locations, external links
+           - names, usernames, emails, phone numbers, social handles, company names, locations, external links, website URLs
 
         2. Remove all social and emotional language:
-           - greetings, religious phrases, compliments, flirting, friendliness, emotional tone, relationship-building language
+           - greetings (e.g. السلام عليكم, hi, hello, good morning)
+           - religious phrases (e.g. بسم الله, إن شاء الله used socially, جزاك الله)
+           - compliments, flirting, friendliness, emotional tone
+           - relationship-building language (e.g. يسعدني التعامل معك شخصياً)
 
         3. Remove all gender indicators and personal pronouns whenever possible.
 
-        4. Remove all requests for off-platform communication.
+        4. Remove all requests for off-platform communication:
+           - mentions of WhatsApp, Telegram, Instagram, Snapchat, phone calls, emails, any external contact method
+           - phrases like: تواصل معي, كلمني, ابعتلي, راسلني, call me, contact me, reach me outside
 
-        5. Preserve ONLY the task-related and technical meaning.
+        5. Preserve ONLY task-related and technical meaning:
+           - keep technical specifications, code snippets, file names, API routes, stack traces, deadlines, deliverables, pricing discussion related to the task
 
         6. Never modify:
-           - code snippets, stack traces, technical specifications, filenames, API routes, programming terms
+           - code blocks, programming terms, technical file names, API routes, stack traces
 
-        7. If the message attempts social interaction, flirting, identity exchange, or external contact then set "blocked": true.
+        7. If the message is ENTIRELY social with zero task-related content (e.g. only a greeting, only flirting, only a contact request):
+           - set "blocked": true
+           - set "sanitized": ""
 
-        8. Output ONLY valid JSON. No markdown. No explanation. No extra text.
+        8. If the message attempts identity exchange, off-platform contact, or social interaction mixed with task content:
+           - remove the social parts
+           - keep only the task parts
+           - set "pii_detected": true
+           - set "blocked": false
 
-        Response format:
-        {"sanitized":"","pii_detected":true,"blocked":false,"reason":""}
+        9. Output ONLY valid JSON. No markdown. No explanation. No extra text before or after.
+
+        Response format must be exactly:
+        {"sanitized":"","pii_detected":false,"blocked":false,"reason":""}
         """;
 
-    // ── JSON options — case-insensitive for resilience ────────────────────────
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
+
+    private const int MaxRetries = 3;
+    private const int BaseDelayMs = 2000;
 
     public AiSanitizerService(
         IHttpClientFactory httpClientFactory,
@@ -74,7 +83,6 @@ public class AiSanitizerService : IAiSanitizerService
     {
         _logger = logger;
         _http = httpClientFactory.CreateClient("Gemini");
-
         _apiKey = configuration["Gemini:ApiKey"] ?? string.Empty;
         _model = configuration["Gemini:Model"] ?? "gemini-2.0-flash";
 
@@ -82,109 +90,76 @@ public class AiSanitizerService : IAiSanitizerService
 
         if (_aiEnabled)
             _logger.LogInformation(
-                "AI sanitizer initialised — model: {Model}", _model);
+                "AiSanitizerService ready — model: {Model}", _model);
         else
             _logger.LogWarning(
-                "Gemini:ApiKey not configured — AI sanitizer running in regex-only mode.");
+                "Gemini:ApiKey not configured — sanitizer will pass messages through unchanged.");
     }
 
     /// <summary>
-    /// Main entry point. Runs regex → AI (if needed) → fallback.
-    /// Never throws; always returns a usable SanitizeResult.
+    /// Sanitizes a message using Gemini.
+    /// If Gemini is unavailable, returns the original message unchanged (safe fallback).
+    /// Never throws.
     /// </summary>
     public async Task<SanitizeResult> SanitizeAsync(
         string message, CancellationToken ct = default)
     {
-        // ── 1. Empty / null guard ─────────────────────────────────────────────
+
+        // Empty guard
         if (string.IsNullOrWhiteSpace(message))
             return new SanitizeResult(message, false, false, string.Empty);
 
-        // ── 2. Regex first pass ───────────────────────────────────────────────
-        // Fast, free, no network. Catches clear-cut PII and off-platform attempts.
-        var regex = RegexPiiFilter.Process(message);
-
-        if (regex.ShouldBlock)
+        // AI not configured — pass through unchanged
+        if (!_aiEnabled)
         {
-            _logger.LogInformation(
-                "Message blocked by regex filter. Reason: {Reason}", regex.BlockReason);
-
-            return new SanitizeResult(
-                SanitizedContent: "[Message blocked — off-platform contact attempt detected]",
-                PiiDetected: true,
-                Blocked: true,
-                Reason: regex.BlockReason
-            );
+            _logger.LogWarning(
+                "AI sanitizer disabled — message passed through without sanitization.");
+            return new SanitizeResult(message, false, false,
+                "AI sanitizer not configured.");
         }
 
-        // ── 3. Decide whether to invoke AI ────────────────────────────────────
-        // Only call Gemini when:
-        //  - AI is configured
-        //  - Regex found PII (needs deeper rewrite), OR
-        //  - Message is long enough that regex alone might miss semantic PII
-        bool shouldCallAi = _aiEnabled
-            && (regex.PiiFound || message.Length > 60);
-
-        if (!shouldCallAi)
-        {
-            // Regex is sufficient — return its result
-            return new SanitizeResult(
-                SanitizedContent: regex.Cleaned,
-                PiiDetected: regex.PiiFound,
-                Blocked: false,
-                Reason: regex.PiiFound
-                    ? "PII detected and redacted by regex filter."
-                    : string.Empty
-            );
-        }
-
-        // ── 4. Call Gemini ────────────────────────────────────────────────────
+        // Call Gemini with retry
         try
         {
-            var geminiResult = await CallGeminiAsync(regex.Cleaned, ct);
+            var result = await CallGeminiAsync(message, ct);
 
-            if (geminiResult is not null)
+            if (result is not null)
             {
                 _logger.LogDebug(
-                    "Gemini sanitizer returned — pii:{Pii} blocked:{Blocked}",
-                    geminiResult.PiiDetected, geminiResult.Blocked);
+                    "Gemini sanitized — pii:{Pii} blocked:{Blocked}",
+                    result.PiiDetected, result.Blocked);
 
                 return new SanitizeResult(
-                    SanitizedContent: geminiResult.Sanitized ?? regex.Cleaned,
-                    PiiDetected: geminiResult.PiiDetected || regex.PiiFound,
-                    Blocked: geminiResult.Blocked,
-                    Reason: geminiResult.Reason ?? string.Empty
-                );
+                    SanitizedContent: result.Sanitized ?? message,
+                    PiiDetected: result.PiiDetected,
+                    Blocked: result.Blocked,
+                    Reason: result.Reason ?? string.Empty);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "Gemini API call failed — falling back to regex result.");
+            _logger.LogError(ex, "AiSanitizerService: Gemini call threw an exception.");
         }
 
-        // ── 5. Fallback to regex result ───────────────────────────────────────
-        _logger.LogWarning("Using regex-only fallback for message sanitization.");
+        // Gemini failed — pass original message through unchanged
+        // Better to let the message through than silently block communication
+        _logger.LogWarning(
+            "Gemini unavailable — message passed through without sanitization.");
 
         return new SanitizeResult(
-            SanitizedContent: regex.Cleaned,
-            PiiDetected: regex.PiiFound,
+            SanitizedContent: message,
+            PiiDetected: false,
             Blocked: false,
-            Reason: "AI unavailable — regex fallback applied."
-        );
+            Reason: "AI unavailable — message passed through.");
     }
 
-    // ── Private: Gemini HTTP call ─────────────────────────────────────────────
+    // ── Gemini HTTP call with retry ───────────────────────────────────────────
 
-    /// <summary>
-    /// Builds and sends the Gemini generateContent request.
-    /// Returns null if the response cannot be parsed into a valid sanitizer output.
-    /// </summary>
     private async Task<GeminiSanitizerOutput?> CallGeminiAsync(
-        string regexCleanedMessage, CancellationToken ct)
+        string message, CancellationToken ct)
     {
         var endpoint = string.Format(EndpointTemplate, _model, _apiKey);
 
-        // Build the strongly-typed request body
         var requestBody = new GeminiRequest(
             SystemInstruction: new GeminiContent(
                 Parts: [new GeminiPart(SystemPrompt)]
@@ -193,60 +168,90 @@ public class AiSanitizerService : IAiSanitizerService
             [
                 new GeminiContent(
                     Role: "user",
-                    Parts: [new GeminiPart(regexCleanedMessage)]
+                    Parts: [new GeminiPart(message)]
                 )
             ],
             GenerationConfig: new GeminiGenerationConfig(
-                ResponseMimeType: "application/json",  // force JSON output
-                Temperature: 0.0f,                // deterministic output
+                ResponseMimeType: "application/json",
+                Temperature: 0.0f,
                 MaxOutputTokens: 512
             )
         );
 
-        // Serialize with camelCase to match Gemini API expectations
         var json = JsonSerializer.Serialize(requestBody, JsonOpts);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        using var response = await _http.PostAsync(endpoint, content, ct);
-
-        // ── 4a. Handle HTTP errors ────────────────────────────────────────────
-        if (!response.IsSuccessStatusCode)
+        for (int attempt = 1; attempt <= MaxRetries; attempt++)
         {
+            ct.ThrowIfCancellationRequested();
+
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+            using var response = await _http.PostAsync(endpoint, content, ct);
+
+            // Success
+            if (response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                return ParseResponse(body);
+            }
+
+            var status = (int)response.StatusCode;
+
+            // Retryable: 429 or 503
+            if (status == 429 || status == 503)
+            {
+                if (attempt == MaxRetries)
+                {
+                    _logger.LogWarning(
+                        "Gemini {Status} on final attempt {A}/{M} — giving up.",
+                        status, attempt, MaxRetries);
+                    return null;
+                }
+
+                int delay = CalculateDelay(response, attempt);
+                _logger.LogWarning(
+                    "Gemini {Status} on attempt {A}/{M} — retrying in {D}ms.",
+                    status, attempt, MaxRetries, delay);
+                await Task.Delay(delay, ct);
+                continue;
+            }
+
+            // Non-retryable
             var errorBody = await response.Content.ReadAsStringAsync(ct);
             _logger.LogError(
-                "Gemini API returned {Status}: {Body}",
-                (int)response.StatusCode, errorBody);
+                "Gemini non-retryable {Status}: {Body}",
+                status, errorBody[..Math.Min(300, errorBody.Length)]);
             return null;
         }
 
-        // ── 4b. Parse response envelope ───────────────────────────────────────
-        var responseJson = await response.Content.ReadAsStringAsync(ct);
+        return null;
+    }
 
-        GeminiResponse? geminiResponse;
+    // ── Parse Gemini response envelope ────────────────────────────────────────
+
+    private GeminiSanitizerOutput? ParseResponse(string responseJson)
+    {
+        GeminiResponse? envelope;
         try
         {
-            geminiResponse = JsonSerializer.Deserialize<GeminiResponse>(
-                responseJson, JsonOpts);
+            envelope = JsonSerializer.Deserialize<GeminiResponse>(responseJson, JsonOpts);
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex,
-                "Failed to deserialise Gemini envelope. Raw: {Raw}", responseJson);
+            _logger.LogError(ex, "Failed to parse Gemini envelope.");
             return null;
         }
 
-        if (geminiResponse?.Error is not null)
+        if (envelope?.Error is not null)
         {
             _logger.LogError(
-                "Gemini API error {Code} [{Status}]: {Message}",
-                geminiResponse.Error.Code,
-                geminiResponse.Error.Status,
-                geminiResponse.Error.Message);
+                "Gemini error {Code} [{Status}]: {Message}",
+                envelope.Error.Code,
+                envelope.Error.Status,
+                envelope.Error.Message);
             return null;
         }
 
-        // ── 4c. Extract the text content from the first candidate ─────────────
-        var rawText = geminiResponse
+        var rawText = envelope
             ?.Candidates
             ?.FirstOrDefault()
             ?.Content
@@ -256,42 +261,29 @@ public class AiSanitizerService : IAiSanitizerService
 
         if (string.IsNullOrWhiteSpace(rawText))
         {
-            _logger.LogWarning("Gemini returned empty candidate text.");
+            _logger.LogWarning("Gemini returned empty text.");
             return null;
         }
 
-        // ── 4d. Parse the sanitizer JSON output ───────────────────────────────
         return ParseSanitizerOutput(rawText);
     }
 
-    // ── Private: parse Gemini text output ─────────────────────────────────────
+    // ── Parse the sanitizer JSON from Gemini's text output ───────────────────
 
-    /// <summary>
-    /// Robustly parses the JSON output from Gemini.
-    /// Handles:
-    ///  - clean JSON            {"sanitized": "...", ...}
-    ///  - markdown-wrapped JSON ```json\n{...}\n```
-    ///  - leading/trailing whitespace
-    /// Returns null if parsing fails.
-    /// </summary>
     private GeminiSanitizerOutput? ParseSanitizerOutput(string raw)
     {
-        // Strip markdown code fences if model wraps despite instruction
         var cleaned = raw.Trim();
 
+        // Strip markdown fences if model wraps despite instruction
         if (cleaned.StartsWith("```"))
         {
-            // Remove opening fence line
             var firstNewline = cleaned.IndexOf('\n');
             if (firstNewline > 0)
                 cleaned = cleaned[(firstNewline + 1)..];
-
-            // Remove closing fence
-            if (cleaned.EndsWith("```"))
-                cleaned = cleaned[..^3].Trim();
+            if (cleaned.TrimEnd().EndsWith("```"))
+                cleaned = cleaned[..cleaned.LastIndexOf("```")].Trim();
         }
 
-        // Strip any stray backticks
         cleaned = cleaned.Trim('`').Trim();
 
         try
@@ -299,10 +291,17 @@ public class AiSanitizerService : IAiSanitizerService
             var output = JsonSerializer.Deserialize<GeminiSanitizerOutput>(
                 cleaned, JsonOpts);
 
-            if (output is null || string.IsNullOrWhiteSpace(output.Sanitized))
+            if (output is null)
+            {
+                _logger.LogWarning("Gemini output parsed to null. Raw: {Raw}", raw);
+                return null;
+            }
+
+            // If sanitized is null/empty but not blocked — something went wrong
+            if (!output.Blocked && string.IsNullOrWhiteSpace(output.Sanitized))
             {
                 _logger.LogWarning(
-                    "Gemini output parsed but sanitized field is empty. Raw: {Raw}", raw);
+                    "Gemini returned empty sanitized field without blocking. Raw: {Raw}", raw);
                 return null;
             }
 
@@ -310,9 +309,26 @@ public class AiSanitizerService : IAiSanitizerService
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex,
-                "Gemini output is not valid JSON. Raw: {Raw}", raw);
+            _logger.LogError(ex, "Gemini output is not valid JSON. Raw: {Raw}", raw);
             return null;
         }
+    }
+
+    // ── Retry delay calculation ───────────────────────────────────────────────
+
+    private static int CalculateDelay(HttpResponseMessage response, int attempt)
+    {
+        if (response.Headers.RetryAfter?.Delta is TimeSpan delta)
+            return (int)delta.TotalMilliseconds + 500;
+
+        if (response.Headers.RetryAfter?.Date is DateTimeOffset retryDate)
+        {
+            var wait = (int)(retryDate - DateTimeOffset.UtcNow).TotalMilliseconds;
+            if (wait > 0) return wait + 500;
+        }
+
+        // Exponential backoff with jitter: 2s → 4s → 8s
+        return BaseDelayMs * (int)Math.Pow(2, attempt - 1)
+             + Random.Shared.Next(0, 500);
     }
 }
