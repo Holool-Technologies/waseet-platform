@@ -271,7 +271,7 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
 
   private loadHistory() {
     this.historyLoading.set(true);
-    const params = new HttpParams().set('page', 1).set('pageSize', 50);
+    const params = new HttpParams().set('page', 1).set('pageSize', 1000);
     this.http.get<ChatMsg[]>(
       `${environment.apiUrl}/chat/conversation/${this.conversationId}/messages`,
       { params }
