@@ -4,6 +4,7 @@ using Domain.Entities;
 using Domain.Interfaces;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Task=System.Threading.Tasks.Task;
 
@@ -14,15 +15,18 @@ public class ChatService : IChatService
     private readonly WaseetDbContext _db;
     private readonly IAiSanitizerService _sanitizer;
     private readonly EncryptionService _encryption;
+    private readonly ILogger<ChatService> _logger;
 
     public ChatService(
         WaseetDbContext db,
         IAiSanitizerService sanitizer,
-        EncryptionService encryption)
+        EncryptionService encryption,
+        ILogger<ChatService> logger)
     {
         _db = db;
         _sanitizer = sanitizer;
         _encryption = encryption;
+        _logger = logger;
     }
 
     /// <summary>
@@ -93,27 +97,56 @@ public class ChatService : IChatService
         string rawContent,
         CancellationToken ct = default)
     {
-        // Try to find existing conversation
-        var conv = await _db.ChatConversations
-            .Include(c => c.Task)
-            .FirstOrDefaultAsync(c => c.ConversationId == conversationId, ct);
+        // Try to find existing conversation with multiple attempts for eventual consistency
+        ChatConversation? conv = null;
+        int attempts = 0;
+        int maxAttempts = 3;
+
+        while (conv is null && attempts < maxAttempts)
+        {
+            conv = await _db.ChatConversations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.ConversationId == conversationId, ct);
+            
+            if (conv is null && attempts < maxAttempts - 1)
+            {
+                await System.Threading.Tasks.Task.Delay(100, ct); // Small delay for eventual consistency
+                attempts++;
+            }
+            else
+            {
+                break;
+            }
+        }
 
         if (conv is null)
         {
-            // Conversation doesn't exist yet — this is the first message
-            // We need to reconstruct from the deterministic ID
-            // The frontend must pass taskId + freelancerId for first message
+            _logger.LogWarning("ProcessAndSaveAsync: conversation {ConversationId} not found after {Attempts} attempts", conversationId, attempts + 1);
             throw new KeyNotFoundException(
-                "Conversation not found. It may not have been initialized.");
+                $"Conversation {conversationId} not found. Ensure it was created via EnsureConversationAsync first.");
         }
 
+        // Load the conversation with its task for further operations
+        var fullConv = await _db.ChatConversations
+            .Include(c => c.Task)
+            .FirstOrDefaultAsync(c => c.ConversationId == conversationId, ct);
+
+        if (fullConv is null)
+        {
+            _logger.LogError("ProcessAndSaveAsync: conversation {ConversationId} exists but failed to load with task details", conversationId);
+            throw new KeyNotFoundException(
+                $"Conversation {conversationId} could not be loaded with task details.");
+        }
+
+        _logger.LogInformation("ProcessAndSaveAsync: conversation {ConversationId} loaded, sender {SenderId}", conversationId, senderUserId);
+
         // Verify sender is client or the specific freelancer of THIS conversation
-        bool isClient = conv.ClientUserId == senderUserId;
-        bool isFreelancer = conv.FreelancerUserId == senderUserId;
+        bool isClient = fullConv.ClientUserId == senderUserId;
+        bool isFreelancer = fullConv.FreelancerUserId == senderUserId;
 
         if (!isClient && !isFreelancer)
             throw new UnauthorizedAccessException(
-                "You are not a party to this conversation.");
+                $"User {senderUserId} is not a party to conversation {conversationId}");
 
         var senderRole = isClient ? "Client" : "Freelancer";
 
@@ -129,7 +162,7 @@ public class ChatService : IChatService
 
         var message = new ChatMessage
         {
-            TaskId = conv.TaskId,
+            TaskId = fullConv.TaskId,
             ConversationId = conversationId,   // scope to conversation
             SenderUserId = senderUserId,
             OriginalEncrypted = encryptedOriginal,
@@ -142,18 +175,18 @@ public class ChatService : IChatService
         _db.ChatMessages.Add(message);
 
         // Update conversation last message + unread
-        conv.LastMessage = message.SanitizedContent[..Math.Min(100, message.SanitizedContent.Length)];
-        conv.LastMessageAt = DateTime.UtcNow;
-        conv.HasMessages = true;
+        fullConv.LastMessage = message.SanitizedContent[..Math.Min(100, message.SanitizedContent.Length)];
+        fullConv.LastMessageAt = DateTime.UtcNow;
+        fullConv.HasMessages = true;
 
-        if (isClient) conv.FreelancerUnreadCount++;
-        else conv.ClientUnreadCount++;
+        if (isClient) fullConv.FreelancerUnreadCount++;
+        else fullConv.ClientUnreadCount++;
 
         await _db.SaveChangesAsync(ct);
 
         return new ChatMessageResponse(
             message.MessageId,
-            conv.TaskId,
+            fullConv.TaskId,
             conversationId,
             message.SenderUserId,
             senderRole,
@@ -314,20 +347,49 @@ public class ChatService : IChatService
         Guid taskId, Guid clientId,
         Guid freelancerId, CancellationToken ct = default)
     {
-        // Just validate — don't create until first message
+        // Validate parties and create conversation if needed
         var task = await _db.Tasks.AsNoTracking()
             .FirstOrDefaultAsync(t => t.TaskId == taskId, ct)
-            ?? throw new KeyNotFoundException("Task not found.");
+            ?? throw new KeyNotFoundException($"Task {taskId} not found.");
 
         if (task.ClientUserId != clientId)
-            throw new UnauthorizedAccessException("Only the client can initiate conversations.");
+            throw new UnauthorizedAccessException($"User {clientId} is not the client for task {taskId}. Client is {task.ClientUserId}");
 
         bool hasBid = await _db.Proposals
+            .AsNoTracking()
             .AnyAsync(p => p.TaskId == taskId
                         && p.FreelancerUserId == freelancerId, ct);
 
         if (!hasBid && task.FreelancerUserId != freelancerId)
-            throw new InvalidOperationException("Freelancer has not bid on this task.");
+            throw new InvalidOperationException($"Freelancer {freelancerId} has not bid on task {taskId}");
+
+        _logger.LogInformation("EnsureConversationAsync: validation passed for task {TaskId}, client {ClientId}, freelancer {FreelancerId}", taskId, clientId, freelancerId);
+
+        // Create conversation if it doesn't exist
+        var convId = DeterministicGuid(taskId, clientId, freelancerId);
+        var existing = await _db.ChatConversations
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.ConversationId == convId, ct);
+
+        if (existing is null)
+        {
+            _logger.LogInformation("EnsureConversationAsync: creating conversation {ConversationId}", convId);
+            var conv = new ChatConversation
+            {
+                ConversationId = convId,
+                TaskId = taskId,
+                ClientUserId = clientId,
+                FreelancerUserId = freelancerId,
+                HasMessages = false
+            };
+            _db.ChatConversations.Add(conv);
+            await _db.SaveChangesAsync(ct);
+            _logger.LogInformation("EnsureConversationAsync: created conversation {ConversationId}", convId);
+        }
+        else
+        {
+            _logger.LogInformation("EnsureConversationAsync: existing conversation {ConversationId} found", convId);
+        }
     }
     /// <summary>
     /// Resets the unread counter for the given user in a conversation.

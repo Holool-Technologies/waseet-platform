@@ -86,38 +86,90 @@ public class WaseetHub : Hub
     }
 
     // ── Send first message (creates conversation lazily) ──────
-    //public async Task SendFirstMessage(
-    //    string taskId, string freelancerUserId, string content)
-    //{
-    //    if (string.IsNullOrWhiteSpace(content) || content.Length > 2000) return;
+    public async Task SendFirstMessage(string taskId, string freelancerUserId, string content)
+    {
+        if (string.IsNullOrWhiteSpace(content) || content.Length > 2000)
+        {
+            await Clients.Caller.SendAsync("Error", "Message is empty or too long.");
+            return;
+        }
 
-    //    var userId = GetUserId();
-    //    if (userId == Guid.Empty) return;
+        var senderUserId = GetUserId();
+        if (senderUserId == Guid.Empty)
+        {
+            await Clients.Caller.SendAsync("Error", "Unauthorized.");
+            return;
+        }
 
-    //    if (!Guid.TryParse(taskId, out var taskGuid)) return;
-    //    if (!Guid.TryParse(freelancerUserId, out var freelancerGuid)) return;
+        if (!Guid.TryParse(taskId, out var taskGuid))
+        {
+            await Clients.Caller.SendAsync("Error", "Invalid task ID.");
+            return;
+        }
 
-    //    try
-    //    {
-    //        var message = await _chatService.ProcessFirstMessageAsync(
-    //            userId, taskGuid, freelancerGuid, content);
+        if (!Guid.TryParse(freelancerUserId, out var freelancerGuid))
+        {
+            await Clients.Caller.SendAsync("Error", "Invalid freelancer ID.");
+            return;
+        }
 
-    //        if (message.Blocked)
-    //        {
-    //            await Clients.Caller.SendAsync("MessageBlocked",
-    //                "Your message was blocked.");
-    //            return;
-    //        }
+        try
+        {
+            _logger.LogInformation("SendFirstMessage: sender={SenderId}, task={TaskId}, freelancer={FreelancerId}", 
+                senderUserId, taskGuid, freelancerGuid);
 
-    //        await Clients.Group($"conv:{message.ConversationId}")
-    //            .SendAsync("ReceiveMessage", message);
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        _logger.LogError(ex, "SendFirstMessage failed");
-    //        await Clients.Caller.SendAsync("Error", "Send failed.");
-    //    }
-    //}
+            // Sender must be the task client
+            Guid clientId = senderUserId;
+            Guid actualFreelancerId = freelancerGuid;
+
+            // Just validate, EnsureConversationAsync will create the conversation
+            await _chatService.EnsureConversationAsync(taskGuid, clientId, actualFreelancerId);
+
+            _logger.LogInformation("Conversation validated/created");
+
+            // Generate deterministic conversation ID
+            var convId = DeterministicGuid(taskGuid, clientId, actualFreelancerId);
+
+            _logger.LogInformation("Generated convId: {ConvId}", convId);
+
+            // Send the message
+            var message = await _chatService.ProcessAndSaveAsync(
+                senderUserId, convId, content);
+
+            _logger.LogInformation("Message saved: {MessageId}", message.MessageId);
+
+            if (message.Blocked)
+            {
+                await Clients.Caller.SendAsync("MessageBlocked",
+                    "Your message was blocked — contact information is not allowed.");
+                return;
+            }
+
+            // Broadcast to conversation group
+            await Clients.Group($"conv:{convId}")
+                .SendAsync("ReceiveMessage", message);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "SendFirstMessage: Unauthorized - {Message}", ex.Message);
+            await Clients.Caller.SendAsync("Error", ex.Message);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            _logger.LogWarning(ex, "SendFirstMessage: Not found - {Message}", ex.Message);
+            await Clients.Caller.SendAsync("Error", ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "SendFirstMessage: Invalid operation - {Message}", ex.Message);
+            await Clients.Caller.SendAsync("Error", ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SendFirstMessage failed - {Message}", ex.Message);
+            await Clients.Caller.SendAsync("Error", ex.Message);
+        }
+    }
 
     public async Task Typing(string conversationId)
     {
@@ -130,5 +182,13 @@ public class WaseetHub : Hub
         var sub = Context.User?.FindFirstValue("sub")
                ?? Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
         return Guid.TryParse(sub, out var id) ? id : Guid.Empty;
+    }
+
+    private static Guid DeterministicGuid(Guid taskId, Guid clientId, Guid freelancerId)
+    {
+        var combined = $"{taskId}:{clientId}:{freelancerId}";
+        using var md5 = System.Security.Cryptography.MD5.Create();
+        var hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(combined));
+        return new Guid(hash);
     }
 }
