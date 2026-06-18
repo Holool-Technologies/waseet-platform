@@ -2,6 +2,7 @@
 using Application.Features.Tasks.DTOs;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.Interfaces;
 using Infrastructure.Persistence;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -16,11 +17,13 @@ public class TaskService : ITaskService
     private readonly WaseetDbContext _db;
     private readonly TaskCodeGenerator _codeGen;
     private readonly INotificationService _notifications;
-    public TaskService(WaseetDbContext db, TaskCodeGenerator codeGen ,INotificationService notifications)
+    private readonly IAiSanitizerService _sanitizer;
+    public TaskService(WaseetDbContext db, TaskCodeGenerator codeGen ,INotificationService notifications, IAiSanitizerService sanitizer)
     {
         _db = db;
         _codeGen = codeGen;
         _notifications = notifications;
+        _sanitizer = sanitizer;
     }
 
     public async Task<TaskResponse> CreateAsync(
@@ -33,24 +36,43 @@ public class TaskService : ITaskService
 
         if (user.KycStatus != KycStatus.Approved)
             throw new InvalidOperationException("KYC verification required before posting tasks.");
+        // بعد الـ KYC check:
+        var descSanitized = await _sanitizer.SanitizeAsync(request.Description.Trim(), ct);
 
+        if (descSanitized.Blocked)
+            throw new InvalidOperationException("TASK_DESC_BLOCKED");
+
+        var titleSanitized = await _sanitizer.SanitizeAsync(request.Title.Trim(), ct);
+
+        if (titleSanitized.Blocked)
+            throw new InvalidOperationException("TASK_TITLE_BLOCKED");
+
+        bool descWasRewritten = descSanitized.PiiDetected
+            && descSanitized.SanitizedContent != request.Description.Trim();
+
+        bool titleWasRewritten = titleSanitized.PiiDetected
+            && titleSanitized.SanitizedContent != request.Title.Trim();
         var code = await _codeGen.GenerateAsync(ct);
 
         var task = new Task
         {
             PublicTaskCode = code,
             ClientUserId = clientUserId,
-            Title = request.Title.Trim(),
-            Description = request.Description.Trim(),
+            Title = titleSanitized.SanitizedContent,
+            Description = descSanitized.SanitizedContent,
             BudgetUSD = request.BudgetUSD,
-            Category = (TaskCategory)request.Category,
-            Status = TaskStatus.Open,
-            ApprovalStatus = TaskApprovalStatus.PendingApproval
+            Category = (Domain.Enums.TaskCategory)request.Category,
+            Status = Domain.Enums.TaskStatus.Open,
+            ApprovalStatus = Domain.Enums.TaskApprovalStatus.PendingApproval
         };
 
         _db.Tasks.Add(task);
         await _db.SaveChangesAsync(ct);
-        return MapTask(task, 0);
+
+        // ابعت الـ flag في الـ response
+        var response = MapTask(task, 0, false);
+        return response with { DescriptionWasRewritten = descWasRewritten || titleWasRewritten };
+
     }
 
     public async Task<PagedResult<TaskResponse>> BrowseAsync(
@@ -95,7 +117,7 @@ public class TaskService : ITaskService
             .ToListAsync(ct);
 
         return new PagedResult<TaskResponse>(
-            items.Select(t => MapTask(t, t.Proposals.Count)),
+            items.Select(t => MapTask(t, t.Proposals.Count, false)),
             total,
             request.Page,
             request.PageSize,
@@ -136,10 +158,10 @@ public class TaskService : ITaskService
     }
 
     public async Task<ProposalResponse> SubmitProposalAsync(
-        Guid freelancerUserId,
-        string taskCode,
-        CreateProposalRequest request,
-        CancellationToken ct = default)
+    Guid freelancerUserId,
+    string taskCode,
+    CreateProposalRequest request,
+    CancellationToken ct = default)
     {
         var task = await _db.Tasks
             .FirstOrDefaultAsync(t => t.PublicTaskCode == taskCode, ct)
@@ -147,33 +169,39 @@ public class TaskService : ITaskService
 
         if (task.Status != Domain.Enums.TaskStatus.Open &&
             task.Status != Domain.Enums.TaskStatus.Bidding)
-            throw new InvalidOperationException("Task is not accepting proposals.");
+            throw new InvalidOperationException("TASK_NOT_ACCEPTING");
 
         if (task.ClientUserId == freelancerUserId)
-            throw new InvalidOperationException("You cannot bid on your own task.");
+            throw new InvalidOperationException("CANNOT_BID_OWN_TASK");
 
         var alreadyBid = await _db.Proposals
             .AnyAsync(p => p.TaskId == task.TaskId
                         && p.FreelancerUserId == freelancerUserId, ct);
         if (alreadyBid)
-            throw new InvalidOperationException("You have already submitted a proposal.");
+            throw new InvalidOperationException("ALREADY_BID");
+
+        // Sanitize cover letter through AI
+        var sanitizedCoverLetter = await SanitizeCoverLetterAsync(
+            request.CoverLetter, ct);
+
+        bool wasRewritten = sanitizedCoverLetter != request.CoverLetter
+                 && !string.IsNullOrWhiteSpace(sanitizedCoverLetter);
 
         var proposal = new Proposal
         {
             TaskId = task.TaskId,
             FreelancerUserId = freelancerUserId,
-            CoverLetter = request.CoverLetter.Trim(),
+            CoverLetter = sanitizedCoverLetter,
             BidAmount = request.BidAmount
         };
+
         task.Status = Domain.Enums.TaskStatus.Bidding;
         task.UpdatedAt = DateTime.UtcNow;
-        bool isfreelancerverified = await _db.Users
-            .AsNoTracking()
-            .Where(u => u.UserId == freelancerUserId && u.KycStatus == KycStatus.Approved)
-            .AnyAsync(ct);
+
         _db.Proposals.Add(proposal);
         await _db.SaveChangesAsync(ct);
-        return MapProposal(proposal, isfreelancerverified);
+
+        return MapProposal(proposal, isVerified: false, wasRewritten: wasRewritten);
     }
 
     public async Task<IEnumerable<ProposalResponse>> GetProposalsAsync(
@@ -209,14 +237,14 @@ public class TaskService : ITaskService
                 Guid.Empty, p.TaskId, Guid.Empty,
                 string.Empty, p.BidAmount,
                 (int)p.Status, p.Status.ToString(),
-            verifiedIds.Contains(p.FreelancerUserId), p.SubmittedAt));
+            verifiedIds.Contains(p.FreelancerUserId), false, p.SubmittedAt));
         }
 
         return proposals.Select(p => new ProposalResponse(
             p.ProposalId, p.TaskId, p.FreelancerUserId,
             p.CoverLetter, p.BidAmount,
             (int)p.Status, p.Status.ToString(),
-            verifiedIds.Contains(p.FreelancerUserId),p.SubmittedAt));
+            verifiedIds.Contains(p.FreelancerUserId),false, p.SubmittedAt));
     }
 
     public async Task<TaskResponse> AwardProposalAsync(
@@ -263,7 +291,7 @@ public class TaskService : ITaskService
             $"/chat/{task.TaskId}",
             ct);
 
-        return MapTask(task, task.Proposals.Count);
+        return MapTask(task, task.Proposals.Count, true);
     }
 
     public async Task<EscrowResponse> GetEscrowAsync(string taskCode, CancellationToken ct = default)
@@ -356,7 +384,7 @@ public class TaskService : ITaskService
             $"/tasks/{task.PublicTaskCode}",
             ct);
 
-        return MapTask(task, 0);
+        return MapTask(task, 0, false);
     }
 
     public async Task<TaskResponse> AdminRejectTaskAsync(
@@ -381,7 +409,7 @@ public class TaskService : ITaskService
             task.TaskId.ToString(),
             "/my-tasks",
             ct);
-        return MapTask(task, 0);
+        return MapTask(task, 0, false);
 
     }
 
@@ -404,21 +432,43 @@ public class TaskService : ITaskService
             items, total, page, pageSize,
             (int)Math.Ceiling(total / (double)pageSize));
     }
+    public async Task<string> SanitizeCoverLetterAsync(
+    string coverLetter, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(coverLetter))
+            return coverLetter;
 
-private static TaskResponse MapTask(Task t, int proposalCount,bool hasSubmittedProposal = false) => new(
+        var result = await _sanitizer.SanitizeAsync(coverLetter, ct);
+
+        // لو الـ AI حجب الرسالة خالص — ارفض الـ proposal
+        if (result.Blocked)
+            throw new InvalidOperationException("PROPOSAL_BLOCKED");
+
+        return result.SanitizedContent;
+    }
+    private static TaskResponse MapTask(Task t, int proposalCount,bool hasSubmittedProposal) => new(
     t.TaskId, t.PublicTaskCode, t.ClientUserId, t.FreelancerUserId,
     t.Title, t.Description, t.BudgetUSD,
     (int)t.Status, t.Status.ToString(),
     (int)t.Category, t.Category.ToString().Replace("_", " & "),
     proposalCount,
     t.ApprovalStatus.ToString(),
-    t.RejectionReason, hasSubmittedProposal,
+    t.RejectionReason,
+    hasSubmittedProposal,
+    false,              // DescriptionWasRewritten — يتحدد في CreateAsync
+    false,              // TitleWasRewritten — يتحدد في CreateAsync
     t.CreatedAt, t.UpdatedAt);
 
-    private static ProposalResponse MapProposal(Proposal p, bool isFreelancerVerified) => new(
-        p.ProposalId, p.TaskId, p.FreelancerUserId,
-        p.CoverLetter, p.BidAmount, (int)p.Status,
-        p.Status.ToString(), isFreelancerVerified, p.SubmittedAt);
+    private static ProposalResponse MapProposal(
+    Proposal p,
+    bool isVerified,
+    bool wasRewritten = false) => new(
+    p.ProposalId, p.TaskId, p.FreelancerUserId,
+    p.CoverLetter, p.BidAmount,
+    (int)p.Status, p.Status.ToString(),
+    isVerified,
+    wasRewritten,
+    p.SubmittedAt);
 
     private static EscrowResponse MapEscrow(EscrowTransaction e) => new(
         e.EscrowId, e.TaskId, e.AmountUSD, (int)e.Status,

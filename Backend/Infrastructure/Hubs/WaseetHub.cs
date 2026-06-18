@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 
-namespace Infrastructure.Hubs;
+namespace Infrastructure;
 
 [Authorize]
 public class WaseetHub : Hub
@@ -46,128 +46,105 @@ public class WaseetHub : Hub
     }
 
     // ── Send message scoped to conversation ───────────────────
-    public async Task SendMessage(Guid senderUserId,string conversationId, string content)
+    public async Task SendMessage(string conversationId, string content)
     {
-        if (string.IsNullOrWhiteSpace(content) || content.Length > 2000) return;
-
-        if (senderUserId == Guid.Empty)
+        if (string.IsNullOrWhiteSpace(content) || content.Length > 2000)
         {
-            await Clients.Caller.SendAsync("Error", "Unauthorized.");
+            await Clients.Caller.SendAsync("Error", "MSG_TOO_LONG");
             return;
         }
 
-        if (!Guid.TryParse(conversationId, out var convGuid)) return;
+        var userId = GetUserId();
+        if (userId == Guid.Empty)
+        {
+            await Clients.Caller.SendAsync("Error", "UNAUTHORIZED");
+            return;
+        }
+
+        if (!Guid.TryParse(conversationId, out var convGuid))
+        {
+            await Clients.Caller.SendAsync("Error", "INVALID_CONVERSATION");
+            return;
+        }
 
         try
         {
             var message = await _chatService.ProcessAndSaveAsync(
-                senderUserId, convGuid, content);
+                userId, convGuid, content);
 
             if (message.Blocked)
             {
-                await Clients.Caller.SendAsync("MessageBlocked",
-                    "Your message was blocked — contact information is not allowed.");
+                await Clients.Caller.SendAsync("MessageBlocked", "MSG_BLOCKED");
                 return;
             }
 
-            // Broadcast ONLY to conversation room — no cross-leakage
             await Clients.Group($"conv:{conversationId}")
                 .SendAsync("ReceiveMessage", message);
         }
-        catch (UnauthorizedAccessException ex)
+        catch (UnauthorizedAccessException)
         {
-            await Clients.Caller.SendAsync("Error", ex.Message);
+            await Clients.Caller.SendAsync("Error", "NOT_CONVERSATION_PARTY");
+        }
+        catch (KeyNotFoundException)
+        {
+            await Clients.Caller.SendAsync("Error", "CONVERSATION_NOT_FOUND");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "SendMessage failed conv:{ConvId}", conversationId);
-            await Clients.Caller.SendAsync("Error", "Send failed. Please retry.");
+            await Clients.Caller.SendAsync("Error", "SEND_FAILED");
         }
     }
 
-    // ── Send first message (creates conversation lazily) ──────
-    public async Task SendFirstMessage(string taskId, string freelancerUserId, string content)
+    public async Task SendFirstMessage(
+        string taskId, string freelancerUserId, string content)
     {
         if (string.IsNullOrWhiteSpace(content) || content.Length > 2000)
         {
-            await Clients.Caller.SendAsync("Error", "Message is empty or too long.");
+            await Clients.Caller.SendAsync("Error", "MSG_TOO_LONG");
             return;
         }
 
-        var senderUserId = GetUserId();
-        if (senderUserId == Guid.Empty)
+        var userId = GetUserId();
+        if (userId == Guid.Empty)
         {
-            await Clients.Caller.SendAsync("Error", "Unauthorized.");
+            await Clients.Caller.SendAsync("Error", "UNAUTHORIZED");
             return;
         }
 
-        if (!Guid.TryParse(taskId, out var taskGuid))
+        if (!Guid.TryParse(taskId, out var taskGuid) ||
+            !Guid.TryParse(freelancerUserId, out var freelancerGuid))
         {
-            await Clients.Caller.SendAsync("Error", "Invalid task ID.");
-            return;
-        }
-
-        if (!Guid.TryParse(freelancerUserId, out var freelancerGuid))
-        {
-            await Clients.Caller.SendAsync("Error", "Invalid freelancer ID.");
+            await Clients.Caller.SendAsync("Error", "INVALID_DATA");
             return;
         }
 
         try
         {
-            _logger.LogInformation("SendFirstMessage: sender={SenderId}, task={TaskId}, freelancer={FreelancerId}", 
-                senderUserId, taskGuid, freelancerGuid);
-
-            // Sender must be the task client
-            Guid clientId = senderUserId;
-            Guid actualFreelancerId = freelancerGuid;
-
-            // Just validate, EnsureConversationAsync will create the conversation
-            await _chatService.EnsureConversationAsync(taskGuid, clientId, actualFreelancerId);
-
-            _logger.LogInformation("Conversation validated/created");
-
-            // Generate deterministic conversation ID
-            var convId = DeterministicGuid(taskGuid, clientId, actualFreelancerId);
-
-            _logger.LogInformation("Generated convId: {ConvId}", convId);
-
-            // Send the message
-            var message = await _chatService.ProcessAndSaveAsync(
-                senderUserId, convId, content);
-
-            _logger.LogInformation("Message saved: {MessageId}", message.MessageId);
+            var message = await _chatService.ProcessFirstMessageAsync(
+                userId, taskGuid, freelancerGuid, content);
 
             if (message.Blocked)
             {
-                await Clients.Caller.SendAsync("MessageBlocked",
-                    "Your message was blocked — contact information is not allowed.");
+                await Clients.Caller.SendAsync("MessageBlocked", "MSG_BLOCKED");
                 return;
             }
 
-            // Broadcast to conversation group
-            await Clients.Group($"conv:{convId}")
+            await Clients.Group($"conv:{message.ConversationId}")
                 .SendAsync("ReceiveMessage", message);
         }
-        catch (UnauthorizedAccessException ex)
+        catch (UnauthorizedAccessException)
         {
-            _logger.LogWarning(ex, "SendFirstMessage: Unauthorized - {Message}", ex.Message);
-            await Clients.Caller.SendAsync("Error", ex.Message);
+            await Clients.Caller.SendAsync("Error", "NOT_CONVERSATION_PARTY");
         }
-        catch (KeyNotFoundException ex)
+        catch (InvalidOperationException)
         {
-            _logger.LogWarning(ex, "SendFirstMessage: Not found - {Message}", ex.Message);
-            await Clients.Caller.SendAsync("Error", ex.Message);
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "SendFirstMessage: Invalid operation - {Message}", ex.Message);
-            await Clients.Caller.SendAsync("Error", ex.Message);
+            await Clients.Caller.SendAsync("Error", "NOT_ALLOWED");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "SendFirstMessage failed - {Message}", ex.Message);
-            await Clients.Caller.SendAsync("Error", ex.Message);
+            _logger.LogError(ex, "SendFirstMessage failed");
+            await Clients.Caller.SendAsync("Error", "SEND_FAILED");
         }
     }
 

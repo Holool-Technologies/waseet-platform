@@ -3,7 +3,6 @@ using Api.Hubs;
 using Api.Middleware;
 using Application;
 using Infrastructure;
-using Infrastructure.Hubs;
 using Infrastructure.Persistence;
 using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);

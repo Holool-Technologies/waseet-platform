@@ -45,11 +45,28 @@
     "rejectionReason": "Rejection reason",
     "pendingApprovalNote": "Your task is being reviewed by our team."
   },
+  "taskErrors": {
+   "TASK_DESC_BLOCKED":  "🚫 Task description contains personal info or off-platform contact attempt.",
+   "TASK_TITLE_BLOCKED": "🚫 Task title contains personal information."
+  },
+  "proposalErrors": {
+  "TASK_DESC_BLOCKED":  "🚫 Task description contains personal info or off-platform contact attempt.",
+  "TASK_TITLE_BLOCKED": "🚫 Task title contains personal information."
+},
   "proposal": {
     "coverLetter": "Cover Letter",
     "bidAmount": "Your Bid (USD)",
-    "submit": "Submit Proposal"
+    "submit": "Submit Proposal",
+    "submitted": "Proposal submitted!",
+    "error":     "Failed to submit proposal, please try again."
   },
+  "proposalErrors": {
+  "TASK_NOT_ACCEPTING":  "This task is not accepting proposals at the moment.",
+  "CANNOT_BID_OWN_TASK": "You cannot bid on your own task.",
+  "ALREADY_BID":         "You have already submitted a proposal for this task.",
+  "PROPOSAL_BLOCKED":    "🚫 Your proposal was rejected — it contains personal information or off-platform contact attempt.",
+  "SUBMIT_FAILED":       "Failed to submit proposal, please try again."
+},
   "chat": {
     "typeMessage": "Type a message...",
     "send": "Send",
@@ -105,6 +122,22 @@
     "aiNote": "Messages are AI-sanitized to protect your anonymity.",
     "blocked": "Message blocked"
   },
+  "chatErrors": {
+  "MSG_TOO_LONG":            "Message is too long or empty.",
+  "UNAUTHORIZED":            "Unauthorized. Please log in again.",
+  "INVALID_CONVERSATION":    "Invalid conversation.",
+  "MSG_BLOCKED":             "🚫 Your message was blocked — sharing personal contact info or off-platform communication is not allowed.",
+  "NOT_CONVERSATION_PARTY":  "You are not authorized to participate in this conversation.",
+  "CONVERSATION_NOT_FOUND":  "Conversation not found.",
+  "SEND_FAILED":             "Failed to send message, please try again.",
+  "INVALID_DATA":            "Invalid data.",
+  "NOT_ALLOWED":             "This operation is not allowed.",
+  "TIMEOUT":                 "Send timed out, please try again.",
+  "CONN_FAILED":             "Connection failed, please try again.",
+  "LOAD_FAILED":             "Failed to load messages.",
+  "ACCESS_DENIED":           "You do not have access to this conversation.",
+  "RECONNECTED":             "Chat connection restored."
+},
   "admin": {
     "portfolio": "Portfolio Review",
     "pending": "Pending",
@@ -112,5 +145,11 @@
     "reject": "Reject",
     "taskApproval": "Task Approval",
     "rejectionReason": "Rejection Reason"
-  }
+  },
+  "aiRewrite": {
+  "chat":     "✏️ Your message was rephrased to be more professional.",
+  "proposal": "✏️ Your cover letter was rephrased to be more professional.",
+  "task":     "✏️ Your task title and description were rephrased to be more professional.",
+  "title":    "Rephrased by AI"
+}
 }

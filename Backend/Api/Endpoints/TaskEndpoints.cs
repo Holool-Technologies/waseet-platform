@@ -65,38 +65,41 @@ public static class TaskEndpoints
                 var task = await taskService.CreateAsync(userId, request, ct);
                 return Results.Created($"/api/tasks/{task.PublicTaskCode}", task);
             }
-            catch (InvalidOperationException ex)
+            catch (InvalidOperationException ex) when
+            (ex.Message is "TASK_DESC_BLOCKED" or "TASK_TITLE_BLOCKED")
             {
-                return Results.BadRequest(new { message = ex.Message });
+                return Results.BadRequest(new { code = ex.Message });
             }
         }).RequireAuthorization();
 
         // Auth: submit proposal (freelancer)
         group.MapPost("/{code}/proposals", async (
-            string code,
-            CreateProposalRequest request,
-            ITaskService taskService,
-            ClaimsPrincipal user,
-            CancellationToken ct) =>
+    string code,
+    CreateProposalRequest request,
+    ITaskService taskService,
+    ClaimsPrincipal user,
+    CancellationToken ct) =>
         {
             var userId = GetUserId(user);
             try
             {
-                var proposal = await taskService.SubmitProposalAsync(userId, code, request, ct);
+                var proposal = await taskService.SubmitProposalAsync(
+                    userId, code, request, ct);
                 return Results.Created($"/api/tasks/{code}/proposals", proposal);
             }
             catch (InvalidOperationException ex)
             {
-                return Results.BadRequest(new { message = ex.Message });
+                // ابعت الـ error code للـ frontend يترجمه
+                return Results.BadRequest(new { code = ex.Message });
             }
-            catch (UnauthorizedAccessException ex)
+            catch (UnauthorizedAccessException)
             {
                 return Results.Forbid();
             }
         }).RequireAuthorization();
 
         // Auth: get proposals 
-       group.MapGet("/{code}/proposals", async (
+        group.MapGet("/{code}/proposals", async (
     string code,
     ITaskService taskService,
     ClaimsPrincipal user,

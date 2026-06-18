@@ -23,6 +23,8 @@ public record
     string ApprovalStatus,      // NEW
     string RejectionReason,
     bool HasSubmittedProposal, // NEW
+    bool TitleWasRewritten,   // NEW
+    bool DescriptionWasRewritten,   // NEW
     DateTime CreatedAt,
     DateTime UpdatedAt
 );

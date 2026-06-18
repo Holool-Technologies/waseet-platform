@@ -14,5 +14,6 @@ public record ProposalResponse(
     int Status,
     string StatusLabel,
     bool FreelancerIsVerified,   // NEW
+    bool WasRewritten,      // NEW
     DateTime SubmittedAt
 );

@@ -9,6 +9,7 @@ public record ChatMessageResponse(
     string SanitizedContent,
     bool PiiDetected,
     bool Blocked,
+    bool WasRewritten,   // NEW — true لو Gemini غيّر الصياغة
     DateTime SentAt
 );
 

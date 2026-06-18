@@ -159,7 +159,8 @@ public class ChatService : IChatService
             blocked = sanitized.Blocked,
             reason = sanitized.Reason
         });
-
+        bool wasRewritten = !sanitized.Blocked
+                 && sanitized.SanitizedContent != rawContent;
         var message = new ChatMessage
         {
             TaskId = fullConv.TaskId,
@@ -169,7 +170,13 @@ public class ChatService : IChatService
             SanitizedContent = sanitized.Blocked
                 ? "[Message blocked]"
                 : sanitized.SanitizedContent,
-            AiFlags = aiFlags
+            AiFlags = JsonSerializer.Serialize(new
+            {
+                pii_detected = sanitized.PiiDetected,
+                blocked = sanitized.Blocked,
+                was_rewritten = wasRewritten,
+                reason = sanitized.Reason
+            })
         };
 
         _db.ChatMessages.Add(message);
@@ -193,58 +200,59 @@ public class ChatService : IChatService
             message.SanitizedContent,
             sanitized.PiiDetected,
             sanitized.Blocked,
+            wasRewritten,
             message.SentAt);
     }
 
     /// <summary>
     /// Creates conversation lazily on first message.
     /// </summary>
-    //public async Task<ChatMessageResponse> ProcessFirstMessageAsync(
-    //    Guid senderUserId,
-    //    Guid taskId,
-    //    Guid freelancerUserId,
-    //    string rawContent,
-    //    CancellationToken ct = default)
-    //{
-    //    var task = await _db.Tasks
-    //        .AsNoTracking()
-    //        .FirstOrDefaultAsync(t => t.TaskId == taskId, ct)
-    //        ?? throw new KeyNotFoundException("Task not found.");
+    public async Task<ChatMessageResponse> ProcessFirstMessageAsync(
+        Guid senderUserId,
+        Guid taskId,
+        Guid freelancerUserId,
+        string rawContent,
+        CancellationToken ct = default)
+    {
+        var task = await _db.Tasks
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.TaskId == taskId, ct)
+            ?? throw new KeyNotFoundException("Task not found.");
 
-    //    // Determine roles
-    //    Guid clientId, flId;
-    //    if (task.ClientUserId == senderUserId)
-    //    {
-    //        clientId = senderUserId;
-    //        flId = freelancerUserId;
-    //    }
-    //    else
-    //    {
-    //        clientId = task.ClientUserId;
-    //        flId = senderUserId;
-    //    }
+        // Determine roles
+        Guid clientId, flId;
+        if (task.ClientUserId == senderUserId)
+        {
+            clientId = senderUserId;
+            flId = freelancerUserId;
+        }
+        else
+        {
+            clientId = task.ClientUserId;
+            flId = senderUserId;
+        }
 
-    //    // Create conversation if not exists
-    //    var convId = DeterministicGuid(taskId, clientId, flId);
-    //    var conv = await _db.ChatConversations
-    //        .FirstOrDefaultAsync(c => c.ConversationId == convId, ct);
+        // Create conversation if not exists
+        var convId = DeterministicGuid(taskId, clientId, flId);
+        var conv = await _db.ChatConversations
+            .FirstOrDefaultAsync(c => c.ConversationId == convId, ct);
 
-    //    if (conv is null)
-    //    {
-    //        conv = new ChatConversation
-    //        {
-    //            ConversationId = convId,
-    //            TaskId = taskId,
-    //            ClientUserId = clientId,
-    //            FreelancerUserId = flId,
-    //            HasMessages = false
-    //        };
-    //        _db.ChatConversations.Add(conv);
-    //        await _db.SaveChangesAsync(ct);
-    //    }
+        if (conv is null)
+        {
+            conv = new ChatConversation
+            {
+                ConversationId = convId,
+                TaskId = taskId,
+                ClientUserId = clientId,
+                FreelancerUserId = flId,
+                HasMessages = false
+            };
+            _db.ChatConversations.Add(conv);
+            await _db.SaveChangesAsync(ct);
+        }
 
-    //    return await ProcessAndSaveAsync(senderUserId, convId, rawContent, ct);
-    //}
+        return await ProcessAndSaveAsync(senderUserId, convId, rawContent, ct);
+    }
 
     /// <summary>
     /// Get message history scoped to ONE conversation (client + specific bidder).
@@ -285,6 +293,7 @@ public class ChatService : IChatService
                 m.SanitizedContent,
                 m.AiFlags.Contains("\"pii_detected\":true"),
                 m.AiFlags.Contains("\"blocked\":true"),
+                m.AiFlags.Contains("\"was_rewritten\":true"),   // NEW
                 m.SentAt))
             .ToListAsync(ct);
     }

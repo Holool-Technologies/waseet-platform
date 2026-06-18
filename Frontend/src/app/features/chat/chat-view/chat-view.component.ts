@@ -8,23 +8,26 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
 import { HubService } from '../../../core/services/hub.service';
 import { environment } from '../../../../environments/environment';
+import { TranslateModule, TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { ToastService } from '../../../core/services/toast.service';
 
 export interface ChatMsg {
-  messageId: string;
-  taskId: string;
-  conversationId: string;
-  senderUserId: string;
-  senderRole: string;
+  messageId:        string;
+  taskId:           string;
+  conversationId:   string;
+  senderUserId:     string;
+  senderRole:       string;
   sanitizedContent: string;
-  piiDetected: boolean;
-  blocked: boolean;
-  sentAt: string;
+  piiDetected:      boolean;
+  blocked:          boolean;
+  wasRewritten:     boolean;   // NEW
+  sentAt:           string;
 }
 
 @Component({
   selector: 'app-chat-view',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslateModule],
   template: `
     <div class="flex flex-col h-full">
 
@@ -72,6 +75,7 @@ export interface ChatMsg {
                         <span>🔒</span> Personal info removed
                       </p>
                     }
+                     
                     <p class="text-sm leading-relaxed break-words whitespace-pre-wrap">
                       {{ msg.sanitizedContent }}
                     </p>
@@ -82,6 +86,19 @@ export interface ChatMsg {
                     <!-- Fix 10: date shown as UTC -->
                     {{ formatTime(msg.sentAt) }}
                   </p>
+                   @if (msg.wasRewritten && !msg.blocked) {
+   <div class="flex items-center gap-1 mt-1.5 pt-1.5 border-t"
+    [class]="mine
+      ? 'border-white/20'
+      : 'border-neutral-100 dark:border-neutral-700'">
+    <span class="text-[10px]"
+      [class]="mine
+        ? 'text-white/60'
+        : 'text-neutral-400'">
+      ✏️ {{ 'aiRewrite.chat' | translate }}
+    </span>
+  </div>
+}
                 </div>
               </div>
             </div>
@@ -157,7 +174,6 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
   private hub  = inject(HubService);
   private auth = inject(AuthService);
   private http = inject(HttpClient);
-
   messages       = signal<ChatMsg[]>([]);
   connected      = signal(false);
   isTyping       = signal(false);
@@ -166,6 +182,8 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
   sending        = signal(false);
   text           = '';
 
+  private translate = inject(TranslateService);
+  private toast     = inject(ToastService);
   private seenIds      = new Set<string>();
   private shouldScroll = true;
   private typingTimer: any;
@@ -173,6 +191,21 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
   // Fix infinite loading — timeout fallback
   private sendTimeout: any;
 
+ private t(code: string): string {
+  return this.translate.instant(`chatErrors.${code}`);
+}
+// استبدل كل رسائل الخطأ:
+private handleBlocked = (code: string) => {
+  this.errorMsg.set(this.t(code));
+  this.sending.set(false);
+  clearTimeout(this.sendTimeout);
+};
+
+private handleError = (code: string) => {
+  this.errorMsg.set(this.t(code));
+  this.sending.set(false);
+  clearTimeout(this.sendTimeout);
+};
   canSend = () =>
     !!this.text.trim() &&
     this.connected() &&
@@ -180,7 +213,7 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
     this.text.length <= 2000;
 
   // Named handlers
-  private onMessage = (msg: ChatMsg) => {
+ private onMessage = (msg: ChatMsg) => {
   if (this.seenIds.has(msg.messageId)) return;
   if (msg.conversationId !== this.conversationId) return;
 
@@ -190,13 +223,18 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
   this.sending.set(false);
   clearTimeout(this.sendTimeout);
 
-  // If the message is from the other party and the chat is open,
-  // immediately mark it as read so the counter stays zero
+  // لو رسالة المستخدم نفسه اتغيرت — بلّغه
+  if (this.isMine(msg) && msg.wasRewritten) {
+    this.toast.info(
+      this.translate.instant('aiRewrite.title'),
+      this.translate.instant('aiRewrite.chat')
+    );
+  }
+
   if (!this.isMine(msg)) {
     this.markRead();
   }
 };
-
 // Add this method to ChatViewComponent:
  private markRead(): void {
    if (!this.conversationId) return;
@@ -278,7 +316,6 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
     ).subscribe({
       next: msgs => {
         msgs.forEach(m => this.seenIds.add(m.messageId));
-        // msgs.forEach(m => alert(JSON.stringify(m)));
         this.messages.set(msgs);
         this.shouldScroll = true;
         this.historyLoading.set(false);
@@ -286,9 +323,9 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
       error: (err) => {
         this.historyLoading.set(false);
         if (err.status === 403) {
-          this.errorMsg.set('Access denied to this conversation.');
+              this.errorMsg.set(this.t('ACCESS_DENIED'));
         } else if (err.status === 404) {
-          this.historyLoading.set(false); // new conversation — no history
+              this.errorMsg.set(this.t('LOAD_FAILED'));
         }
       }
     });
@@ -320,16 +357,14 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
     this.text     = '';
     this.sending.set(true);
     this.errorMsg.set('');
-
     // Fix infinite loading — timeout fallback after 10s
     clearTimeout(this.sendTimeout);
     this.sendTimeout = setTimeout(() => {
       if (this.sending()) {
         this.sending.set(false);
         this.text = content;  // restore
-        this.errorMsg.set('Send timed out. Please try again.');
-      }
-    }, 10000);
+    this.errorMsg.set(this.t('TIMEOUT'));      }
+    }, 100000);
 
     try {
       if (this.isFirstMessage && this.taskId && this.freelancerUserId) {
@@ -338,14 +373,13 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
           this.taskId, this.freelancerUserId, content);
         this.isFirstMessage = false;
       } else {
-        await this.hub.sendMessage(this.auth.currentUser()?.userId ?? '', this.conversationId, content);
+        await this.hub.sendMessage(this.conversationId, content);
       }
     } catch (err) {
       this.sending.set(false);
       clearTimeout(this.sendTimeout);
       this.text = content;
-      this.errorMsg.set('Failed to send. Please try again.');
-    }
+  this.errorMsg.set(this.t('CONN_FAILED'));    }
   }
 
   // Fix 8: use senderUserId for isMine

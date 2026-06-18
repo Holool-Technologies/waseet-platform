@@ -20,4 +20,7 @@ public interface ITaskService
     Task<TaskResponse> AdminApproveTaskAsync(Guid taskId, CancellationToken ct = default);
     Task<TaskResponse> AdminRejectTaskAsync(Guid taskId, string reason, CancellationToken ct = default);
     Task<PagedResult<TaskResponse>> GetPendingApprovalAsync(int page, int pageSize, CancellationToken ct = default);
+    Task<string> SanitizeCoverLetterAsync(
+        string coverLetter,
+        CancellationToken ct = default);
 }

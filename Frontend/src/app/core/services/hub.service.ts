@@ -5,6 +5,7 @@ import { NotificationService } from './notification.service';
 import { ToastService } from './toast.service';
 import { LangService } from './lang.service';
 import { environment } from '../../../environments/environment';
+import { TranslateService } from '@ngx-translate/core';
 
 @Injectable({ providedIn: 'root' })
 export class HubService {
@@ -16,7 +17,7 @@ export class HubService {
   private hub: signalR.HubConnection | null = null;
   private handlers = new Map<string, Set<(data: any) => void>>();
   private connecting = false;
-
+  private translate = inject(TranslateService); 
   async connect(): Promise<void> {
     if (this.hub?.state === signalR.HubConnectionState.Connected) return;
     if (this.connecting) {
@@ -67,13 +68,19 @@ export class HubService {
     this.hub.on('Error',          (e: any)   => this.emit('Error', e));
 
     this.hub.onreconnected(async () => {
-      this.toast.info('Reconnected', 'Connection restored.');
+      this.toast.info(this.translate.instant('chatErrors.RECONNECTED'));
     });
 
     try {
       await this.hub.start();
       this.notifs.loadUnreadCount();
-    } finally {
+    } 
+    catch (err) {
+     this.toast.error(
+    this.translate.instant('chatErrors.CONN_FAILED')
+    );
+    }
+    finally {
       this.connecting = false;
     }
   }
@@ -89,9 +96,9 @@ export class HubService {
       await this.hub.invoke('LeaveConversation', conversationId);
   }
 
-  async sendMessage(senderUserId:string,conversationId: string, content: string) {
+  async sendMessage(conversationId: string, content: string) {
     await this.ensureConnected();
-    await this.hub?.invoke('SendMessage', senderUserId, conversationId, content);
+    await this.hub?.invoke('SendMessage', conversationId, content);
   }
 
   async sendFirstMessage(taskId: string, freelancerId: string, content: string) {

@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { HttpClient } from '@angular/common/http';
 import { TaskService } from '../../../../core/services/task.service';
 import { EscrowService } from '../../../../core/services/escrow.service';
@@ -310,7 +310,7 @@ export class TaskDetailComponent implements OnInit {
   private toast       = inject(ToastService);
   auth                = inject(AuthService);
   private fb          = inject(FormBuilder);
-
+ private translate = inject(TranslateService);
   task             = signal<WaseetTask | null>(null);
   proposals        = signal<Proposal[]>([]);
   escrow           = signal<EscrowTransaction | null>(null);
@@ -453,22 +453,39 @@ chatFromModal() {
 submitProposal() {
   if (this.proposalForm.invalid || !this.task()) return;
   this.submittingProposal.set(true);
-  this.taskService.submitProposal(this.task()!.publicTaskCode, this.proposalForm.value as any)
-    .subscribe({
-      next: (newProposal: Proposal) => {
-        this.toast.success('Proposal submitted!');
-        // Fix 3: mark as bid immediately
-        this.hasAlreadyBid.set(true);
-        // Fix 4: add new proposal to list immediately — no refresh needed
-        this.proposals.update(p => [...p, newProposal]);
-        this.proposalForm.reset();
-        this.submittingProposal.set(false);
-      },
-      error: (err) => {
-        this.toast.error('Submission failed', err?.error?.message);
-        this.submittingProposal.set(false);
+
+  this.taskService.submitProposal(
+    this.task()!.publicTaskCode,
+    this.proposalForm.value as any
+  ).subscribe({
+    next: (newProposal: Proposal) => {
+      this.hasAlreadyBid.set(true);
+      this.proposals.update(p => [...p, newProposal]);
+      this.proposalForm.reset();
+      this.submittingProposal.set(false);
+
+      // لو الـ proposal اتغير — بلّغ المستخدم
+      if (newProposal.wasRewritten) {
+        this.toast.info(
+          this.translate.instant('aiRewrite.title'),
+          this.translate.instant('aiRewrite.proposal')
+        );
+      } else {
+        this.toast.success(
+          this.translate.instant('proposal.submitted')
+        );
       }
-    });
+    },
+    error: (err) => {
+      this.submittingProposal.set(false);
+      const errorCode = err?.error?.code ?? 'SUBMIT_FAILED';
+      const msg = this.translate.instant(`proposalErrors.${errorCode}`);
+      this.toast.error(
+        this.translate.instant('proposal.error'),
+        msg
+      );
+    }
+  });
 }
 
   releaseEscrow() {

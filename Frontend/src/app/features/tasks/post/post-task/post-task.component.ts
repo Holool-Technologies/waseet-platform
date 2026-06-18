@@ -2,8 +2,9 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { TaskService } from '../../../../core/services/task.service';
+import { ToastService } from '../../../../core/services/toast.service';
 
 @Component({
   selector: 'app-post-task',
@@ -56,6 +57,8 @@ export class PostTaskComponent {
   private fb = inject(FormBuilder);
   private taskService = inject(TaskService);
   private router = inject(Router);
+  private translate = inject(TranslateService);
+  private toast = inject(ToastService);
   loading = signal(false);
   error = signal('');
 
@@ -68,11 +71,34 @@ export class PostTaskComponent {
   });
 
   submit() {
-    if (this.form.invalid) return;
-    this.loading.set(true);
-    this.taskService.create(this.form.value as any).subscribe({
-      next: task => this.router.navigate(['/tasks', task.publicTaskCode]),
-      error: () => { this.error.set('Failed to post task'); this.loading.set(false); }
-    });
-  }
+  if (this.form.invalid) return;
+  this.loading.set(true);
+
+  this.taskService.create(this.form.value as any).subscribe({
+    next: (task: any) => {
+      // لو وصف المهمة أو العنوان اتغير
+      if (task.descriptionWasRewritten) {
+        this.toast.info(
+          this.translate.instant('aiRewrite.title'),
+          this.translate.instant('aiRewrite.task')
+        );
+        // أعطِ المستخدم ثانيتين يشوف الـ toast قبل الـ navigate
+        setTimeout(() => {
+          this.router.navigate(['/tasks', task.publicTaskCode]);
+        }, 2000);
+      } else {
+        this.router.navigate(['/tasks', task.publicTaskCode]);
+      }
+    },
+    error: (err) => {
+      const errorCode = err?.error?.code ?? 'SUBMIT_FAILED';
+      const msg = this.translate.instant(`proposalErrors.${errorCode}`);
+      this.toast.error(
+        this.translate.instant('task.postError') ?? 'Error',
+        msg
+      );
+      this.loading.set(false);
+    }
+  });
+}
 }
