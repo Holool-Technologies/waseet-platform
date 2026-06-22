@@ -3,6 +3,7 @@ using Application.Features.Auth.Interfaces;
 using Application.Features.Chat.Interfaces;
 using Application.Features.Kyc.Interfaces;
 using Application.Features.Notifications.Interfaces;
+using Application.Features.Tasks.Interfaces;
 using Domain.Interfaces;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
@@ -12,7 +13,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Application.Features.Tasks.Interfaces;
+using Waseet.Application.Features.Delivery.Interfaces;
+using Waseet.Domain.Interfaces;
+using Waseet.Infrastructure.BackgroundJobs;
+using Waseet.Infrastructure.Services;
 
 
 namespace Infrastructure;
@@ -65,6 +69,14 @@ public static class DependencyInjection
         services.AddScoped<ProfileService>();
         services.AddScoped<TaskCodeGenerator>();
         services.AddScoped<AnonymousNameService>();
+
+        // Payment abstraction — swap SimulatedPaymentGatewayService for a real
+        // provider later by changing only this one registration.
+        services.AddScoped<IPaymentGatewayService, SimulatedPaymentGatewayService>();
+
+        services.AddScoped<IDeliveryService, DeliveryService>();
+
+        services.AddHostedService<AutoReleaseBackgroundService>();
 
         // ── JWT settings ──────────────────────────────────────────────────────
         services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));

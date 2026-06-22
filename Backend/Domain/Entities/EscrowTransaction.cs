@@ -10,6 +10,7 @@ public class EscrowTransaction
     public DateTime HeldAt { get; set; } = DateTime.UtcNow;
     public DateTime? ReleasedAt { get; set; }
     public Guid? ReleasedToUserId { get; set; }
+    public string ProviderReference { get; set; } = string.Empty;
 
     public Task Task { get; set; } = null!;
 }

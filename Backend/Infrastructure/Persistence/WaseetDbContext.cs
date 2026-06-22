@@ -1,10 +1,11 @@
 ﻿using Domain.Entities;
-using Task=Domain.Entities.Task;
+using Domain.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection.Emit;
-using Domain.Enums;
+using Waseet.Domain.Entities;
+using Task=Domain.Entities.Task;
 
 namespace Infrastructure.Persistence;
 
@@ -24,6 +25,9 @@ public class WaseetDbContext : DbContext
     public DbSet<PortfolioItem> PortfolioItems => Set<PortfolioItem>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ChatConversation> ChatConversations => Set<ChatConversation>();
+    public DbSet<Delivery> Deliveries => Set<Delivery>();
+    public DbSet<DeliveryFile> DeliveryFiles => Set<DeliveryFile>();
+    public DbSet<Dispute> Disputes => Set<Dispute>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

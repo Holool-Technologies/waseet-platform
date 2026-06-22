@@ -28,5 +28,8 @@ public class EscrowTransactionConfiguration : IEntityTypeConfiguration<EscrowTra
 
         builder.Property(e => e.ReleasedToUserId)
             .IsRequired(false);
+
+        builder.Property(e => e.ProviderReference)
+            .HasMaxLength(100);
     }
 }
