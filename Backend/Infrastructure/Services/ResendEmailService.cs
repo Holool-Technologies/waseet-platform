@@ -46,7 +46,7 @@ public class ResendEmailService : IEmailService
         var html = $"""
             <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;">
               <h2 style="color:#4f6ef7;">Welcome to وسيط — Waseet</h2>
-              <p>Your account has been created. Complete your KYC to start posting or bidding on tasks.</p>
+              <p>Your account has been created.</p>
             </div>
             """;
 

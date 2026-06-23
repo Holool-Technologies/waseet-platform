@@ -67,8 +67,6 @@ Migrations/
  20260422234527_AddAdminSeed.Designer.cs
  20260429211058_ProfilePortfolioNotificationsConversations.cs
  20260429211058_ProfilePortfolioNotificationsConversations.Designer.cs
- 20260502224346_ConversationScoping_KycDoc_DateFix.cs
- 20260502224346_ConversationScoping_KycDoc_DateFix.Designer.cs
  WaseetDbContextModelSnapshot.cs
 obj/Debug/net9.0/
  .NETCoreApp,Version=v9.0.AssemblyAttributes.cs
@@ -79,7 +77,6 @@ Persistence/Configurations/
  ChatMessageConfiguration.cs
  EscrowTransactionConfiguration.cs
  FreelancerProfileConfiguration.cs
- KycRecordConfiguration.cs
  NotificationConfiguration.cs
  PasswordResetTokenConfiguration.cs
  PortfolioItemConfiguration.cs
@@ -101,7 +98,6 @@ Services/
  EncryptionService.cs
  Gemini/GeminiModels.cs
  JwtSettings.cs
- KycService.cs
  LocalFileStorageService.cs
  NotificationService.cs
  ProfileService.cs

@@ -1,7 +1,6 @@
 ﻿using Application.Features.Admin.Interfaces;
 using Application.Features.Auth.Interfaces;
 using Application.Features.Chat.Interfaces;
-using Application.Features.Kyc.Interfaces;
 using Application.Features.Notifications.Interfaces;
 using Application.Features.Tasks.Interfaces;
 using Domain.Interfaces;
@@ -60,7 +59,6 @@ public static class DependencyInjection
 
         // ── Domain services ───────────────────────────────────────────────────
         services.AddScoped<IAuthService, AuthService>();
-        services.AddScoped<IKycService, KycService>();
         services.AddScoped<ITaskService, TaskService>();
         services.AddScoped<IChatService, ChatService>();
         services.AddScoped<IAdminService, AdminService>();

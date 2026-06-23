@@ -59,7 +59,6 @@ Entities/
  ChatMessage.cs
  EscrowTransaction.cs
  FreelancerProfile.cs
- KycRecord.cs
  Notification.cs
  PasswordResetToken.cs
  PortfolioItem.cs

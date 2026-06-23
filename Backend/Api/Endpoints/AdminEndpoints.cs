@@ -41,20 +41,6 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
-        // KYC queue
-        group.MapGet("/kyc", async (
-            IAdminService adminService,
-            int page, int pageSize, string? status,
-            CancellationToken ct) =>
-            Results.Ok(await adminService.GetKycQueueAsync(page, pageSize, status, ct)));
-
-        group.MapPatch("/kyc/{kycId:guid}/decide", async (
-            Guid kycId, AdminDecideKycRequest request,
-            IAdminService adminService, CancellationToken ct) =>
-        {
-            await adminService.DecideKycAsync(kycId, request.Decision, ct);
-            return Results.NoContent();
-        });
 
         // Tasks
         group.MapGet("/tasks", async (

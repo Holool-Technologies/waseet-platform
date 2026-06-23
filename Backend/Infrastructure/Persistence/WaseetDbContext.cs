@@ -14,7 +14,6 @@ public class WaseetDbContext : DbContext
     public WaseetDbContext(DbContextOptions<WaseetDbContext> options) : base(options) { }
 
     public DbSet<User> Users => Set<User>();
-    public DbSet<KycRecord> KycRecords => Set<KycRecord>();
     public DbSet<Task> Tasks => Set<Task>();
     public DbSet<Proposal> Proposals => Set<Proposal>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();

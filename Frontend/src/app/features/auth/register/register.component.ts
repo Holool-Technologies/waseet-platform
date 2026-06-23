@@ -85,7 +85,7 @@ export class RegisterComponent {
     if (this.form.invalid) return;
     this.loading.set(true);
     this.auth.register(this.form.value as any).subscribe({
-      next: () => this.router.navigate(['/kyc']),
+      next: () => this.router.navigate(['/']),
       error: () => { this.error.set('Registration failed'); this.loading.set(false); }
     });
   }

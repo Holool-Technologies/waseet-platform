@@ -10,7 +10,6 @@ export const ADMIN_ROUTES: Routes = [
       { path: '',         redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'dashboard',loadComponent: () => import('./dashboard/admin-dashboard.component').then(m => m.AdminDashboardComponent) },
       { path: 'users',    loadComponent: () => import('./users/admin-users.component').then(m => m.AdminUsersComponent) },
-      { path: 'kyc',      loadComponent: () => import('./kyc/admin-kyc.component').then(m => m.AdminKycComponent) },
       { path: 'tasks',    loadComponent: () => import('./tasks/admin-tasks.component').then(m => m.AdminTasksComponent) },
       { path: 'escrow',   loadComponent: () => import('./escrow/admin-escrow.component').then(m => m.AdminEscrowComponent) },
       { path: 'chat-logs',loadComponent: () => import('./chat-logs/admin-chat-logs.component').then(m => m.AdminChatLogsComponent) },

@@ -25,8 +25,6 @@ public class AdminService : IAdminService
         var users      = await _db.Users.CountAsync(ct);
         var clients    = await _db.Users.CountAsync(u => u.Role == Domain.Enums.UserRole.Client, ct);
         var freelancers= await _db.Users.CountAsync(u => u.Role == Domain.Enums.UserRole.Freelancer, ct);
-        var pendingKyc = await _db.KycRecords.CountAsync(k => k.Status == Domain.Enums.KycStatus.Pending, ct);
-
         var tasks      = await _db.Tasks.CountAsync(ct);
         var open       = await _db.Tasks.CountAsync(t => t.Status == Domain.Enums.TaskStatus.Open, ct);
         var active     = await _db.Tasks.CountAsync(t => t.Status == Domain.Enums.TaskStatus.Active, ct);
@@ -42,7 +40,7 @@ public class AdminService : IAdminService
             .SumAsync(e => e.AmountUSD, ct);
 
         return new DashboardStatsResponse(
-            users, clients, freelancers, pendingKyc,
+            users, clients, freelancers,
             tasks, open, active, completed, disputed,
             msgs, blocked, totalEscrow, heldEscrow,
             DateTime.UtcNow);
@@ -66,7 +64,6 @@ public class AdminService : IAdminService
             .Take(pageSize)
             .Select(u => new AdminUserResponse(
                 u.UserId, u.Email, u.Role.ToString(),
-                u.KycStatus.ToString(),
                 _db.Tasks.Count(t => t.ClientUserId == u.UserId || t.FreelancerUserId == u.UserId),
                 u.CreatedAt,
                 false
@@ -78,12 +75,8 @@ public class AdminService : IAdminService
 
     public async Task BanUserAsync(Guid userId, bool ban, CancellationToken ct = default)
     {
-        // For MVP we mark KYC as rejected to effectively disable the account
         var user = await _db.Users.FindAsync([userId], ct)
             ?? throw new KeyNotFoundException("User not found.");
-        user.KycStatus = ban
-            ? Domain.Enums.KycStatus.Rejected
-            : Domain.Enums.KycStatus.Approved;
         await _db.SaveChangesAsync(ct);
     }
 
@@ -93,80 +86,6 @@ public class AdminService : IAdminService
             ?? throw new KeyNotFoundException("User not found.");
         _db.Users.Remove(user);
         await _db.SaveChangesAsync(ct);
-    }
-
-    public async Task<AdminPagedResult<AdminKycResponse>> GetKycQueueAsync(
-        int page, int pageSize, string? status, CancellationToken ct = default)
-    {
-        var query = _db.KycRecords
-            .Include(k => k.User)
-            .AsNoTracking()
-            .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(status) &&
-            Enum.TryParse<Domain.Enums.KycStatus>(status, out var s))
-            query = query.Where(k => k.Status == s);
-        else
-            query = query.Where(k => k.Status == Domain.Enums.KycStatus.Pending);
-
-        var total = await query.CountAsync(ct);
-        var items = await query
-            .OrderBy(k => k.SubmittedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(k => new AdminKycResponse(
-                k.KycId, k.UserId, k.User.Email,
-                k.Status.ToString(), k.DocumentBlobRef,
-                k.SubmittedAt, k.VerifiedAt))
-            .ToListAsync(ct);
-
-        return Paged(items, total, page, pageSize);
-    }
-
-    public async Task DecideKycAsync(Guid kycId, string decision, CancellationToken ct = default)
-    {
-        var record = await _db.KycRecords
-            .Include(k => k.User)
-            .FirstOrDefaultAsync(k => k.KycId == kycId, ct)
-            ?? throw new KeyNotFoundException("KYC record not found.");
-
-        record.Status = decision.ToLower() == "approve"
-            ? Domain.Enums.KycStatus.Approved
-            : Domain.Enums.KycStatus.Rejected;
-
-        record.VerifiedAt = DateTime.UtcNow;
-        record.User.KycStatus = record.Status;
-        if (record.User.KycStatus == Domain.Enums.KycStatus.Rejected)
-        {
-            _db.KycRecords.Remove(record);
-            await _db.SaveChangesAsync(ct);
-
-        }
-        await _db.SaveChangesAsync(ct);
-
-        // ? Notify the USER whose KYC was decided — NOT the admin
-        if (record.Status == Domain.Enums.KycStatus.Approved)
-        {
-            await _notifications.CreateAndPushAsync(
-                record.UserId,  // <-- the freelancer/client, NOT adminId
-                Domain.Enums.NotificationType.KycApproved,
-                "Identity Verified",
-                "Êã ÇáÊÍÞÞ ãä åæíÊß",
-                "Your identity has been verified. You can now post and bid on tasks.",
-                "Êã ÇáÊÍÞÞ ãä åæíÊß. íãßäß ÇáÂä äÔÑ ÇáãåÇã æÇáãÒÇíÏÉ ÚáíåÇ.",
-                kycId.ToString(), "/kyc", ct);
-        }
-        else
-        {
-            await _notifications.CreateAndPushAsync(
-                record.UserId,  // <-- the user, NOT admin
-                Domain.Enums.NotificationType.KycRejected,
-                "Verification Failed",
-                "ÝÔá ÇáÊÍÞÞ ãä ÇáåæíÉ",
-                "Your identity verification was not approved. Please resubmit with clearer documents.",
-                "áã ÊÊã ÇáãæÇÝÞÉ Úáì ÇáÊÍÞÞ ãä åæíÊß. íÑÌì ÅÚÇÏÉ ÇáÊÞÏíã ÈãÓÊäÏÇÊ ÃæÖÍ.",
-                kycId.ToString(), "/kyc", ct);
-        }
     }
 
     public async Task<AdminPagedResult<AdminTaskResponse>> GetTasksAsync(

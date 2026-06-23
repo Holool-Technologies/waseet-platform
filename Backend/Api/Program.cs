@@ -89,7 +89,6 @@ app.MapAuthEndpoints();
 app.MapTaskEndpoints();
 app.MapEscrowEndpoints();
 app.MapChatEndpoints();
-app.MapKycEndpoints();
 app.MapAdminEndpoints();
 app.MapProfileEndpoints();
 app.MapNotificationEndpoints();

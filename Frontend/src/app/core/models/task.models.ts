@@ -33,7 +33,6 @@ export interface Proposal {
   bidAmount: number;
   status: number;
   statusLabel: string;
-  freelancerIsVerified: boolean;   // NEW
   wasRewritten:boolean;            // NEW
   submittedAt: string;
 }

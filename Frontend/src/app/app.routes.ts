@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
-import { kycGuard } from './core/guards/kyc.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'browse', pathMatch: 'full' },
@@ -27,8 +26,7 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/tasks/post/post-task/post-task.component').then(
         (m) => m.PostTaskComponent,
-      ),
-    canActivate: [authGuard, kycGuard],
+      )
   },
   {
     path: 'dashboard',
@@ -41,11 +39,6 @@ export const routes: Routes = [
   //   loadComponent: () => import('./features/chat/chat.component').then((m) => m.ChatComponent),
   //   canActivate: [authGuard],
   // },
-  {
-    path: 'kyc',
-    loadComponent: () => import('./features/kyc/kyc.component').then((m) => m.KycComponent),
-    canActivate: [authGuard],
-  },
   {
     path: 'profile',
     loadComponent: () =>

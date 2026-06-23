@@ -115,11 +115,6 @@ import { environment } from '../../../../../environments/environment';
                           <span class="text-xs text-neutral-400">
                             · {{ p.submittedAt | date:'d MMM' }}
                           </span>
-                          @if (p.freelancerIsVerified) {
-                            <span class="badge-green text-[10px]" title="Identity verified">✓ Verified</span>
-                          } @else {
-                            <span class="badge-gray text-[10px]">Unverified</span>
-                          }
                         </div>
 
                         <div class="flex items-center gap-2">

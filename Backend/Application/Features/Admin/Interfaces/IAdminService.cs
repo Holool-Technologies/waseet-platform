@@ -9,10 +9,6 @@ public interface IAdminService
     Task<AdminPagedResult<AdminUserResponse>> GetUsersAsync(int page, int pageSize, string? search, string? role, CancellationToken ct = default);
     Task BanUserAsync(Guid userId, bool ban, CancellationToken ct = default);
     Task DeleteUserAsync(Guid userId, CancellationToken ct = default);
-
-    Task<AdminPagedResult<AdminKycResponse>> GetKycQueueAsync(int page, int pageSize, string? status, CancellationToken ct = default);
-    Task DecideKycAsync(Guid kycId, string decision, CancellationToken ct = default);
-
     Task<AdminPagedResult<AdminTaskResponse>> GetTasksAsync(int page, int pageSize, string? search, string? status, CancellationToken ct = default);
     Task DeleteTaskAsync(Guid taskId, CancellationToken ct = default);
 

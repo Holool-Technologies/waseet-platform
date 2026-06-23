@@ -31,15 +31,6 @@ export class AdminService {
     return this.http.delete(`${this.base}/users/${userId}`);
   }
 
-  getKycQueue(page = 1, pageSize = 20, status?: string) {
-    let params = new HttpParams().set('page', page).set('pageSize', pageSize);
-    if (status) params = params.set('status', status);
-    return this.http.get<AdminPaged<AdminKyc>>(`${this.base}/kyc`, { params });
-  }
-
-  decideKyc(kycId: string, decision: 'approve' | 'reject') {
-    return this.http.patch(`${this.base}/kyc/${kycId}/decide`, { decision });
-  }
 
   getTasks(page = 1, pageSize = 20, search?: string, status?: string) {
     let params = new HttpParams().set('page', page).set('pageSize', pageSize);
