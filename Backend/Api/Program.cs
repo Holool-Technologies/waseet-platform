@@ -6,6 +6,10 @@ using Infrastructure;
 using Infrastructure.Persistence;
 using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>();
+}
 
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);

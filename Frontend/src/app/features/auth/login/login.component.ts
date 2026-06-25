@@ -23,7 +23,7 @@ import { SocialAuthService, GoogleLoginProvider } from '@abacritt/angularx-socia
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ 'auth.login' | translate }}</h1>
           </div>
 
-          <!-- Google login -->
+          <!-- Google login 
           // <button (click)="googleLogin()" [disabled]="googleLoading()"
           //   class="w-full flex items-center justify-center gap-3 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 mb-6 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-200">
           //   <svg width="18" height="18" viewBox="0 0 24 24">
@@ -33,14 +33,14 @@ import { SocialAuthService, GoogleLoginProvider } from '@abacritt/angularx-socia
           //     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           //   </svg>
           //   @if (googleLoading()) { Signing in... } @else { Continue with Google }
-          // </button>
+          //</button>
 
           // <div class="flex items-center gap-3 mb-6">
           //   <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
           //   <span class="text-xs text-gray-400">or</span>
           //   <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
           // </div>
-
+-->
           <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
