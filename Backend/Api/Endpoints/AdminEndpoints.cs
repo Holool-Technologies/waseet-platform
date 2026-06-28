@@ -1,8 +1,13 @@
 using Application.Features.Admin.DTOs;
 using Application.Features.Admin.Interfaces;
+using Application.Features.Tasks.Interfaces;
 using Azure.Core;
 using Infrastructure.Services;
-using Application.Features.Tasks.Interfaces;
+using System.Security.Claims;
+using Waseet.Application.Features.Delivery.Interfaces;
+using Waseet.Application.Features.Delivery.DTOs;
+using AdminResolveDisputeRequest = Waseet.Application.Features.Delivery.DTOs.AdminResolveDisputeRequest;
+
 
 namespace Api.Endpoints;
 
@@ -113,5 +118,39 @@ public static class AdminEndpoints
             await taskService.AdminRejectTaskAsync(taskId, request.Reason, ct);
             return Results.NoContent();
         });
+
+        // Open disputes queue
+        group.MapGet("/disputes", async (
+            IDeliveryService deliveryService, CancellationToken ct) =>
+            Results.Ok(await deliveryService.GetOpenDisputesAsync(ct)));
+
+        // Resolve a dispute
+        group.MapPost("/disputes/{disputeId:guid}/resolve", async (
+            Guid disputeId,
+            AdminResolveDisputeRequest request,
+            IDeliveryService deliveryService,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var adminId = GetUserId(user);
+            try
+            {
+                var result = await deliveryService.AdminResolveDisputeAsync(
+                    adminId, disputeId, request.Resolution, request.AdminNotes, ct);
+                return Results.Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { code = ex.Message });
+            }
+        });
+
+
     }
+
+    private static Guid GetUserId(ClaimsPrincipal user) =>
+    Guid.Parse(user.FindFirstValue("sub")
+        ?? user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+
 }

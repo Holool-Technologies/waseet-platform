@@ -5,6 +5,7 @@ using Application;
 using Infrastructure;
 using Infrastructure.Persistence;
 using Microsoft.OpenApi.Models;
+using Waseet.Api.Endpoints;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplicationServices();
@@ -94,6 +95,7 @@ app.MapAdminEndpoints();
 app.MapProfileEndpoints();
 app.MapNotificationEndpoints();
 app.MapFileEndpoints();
+app.MapDeliveryEndpoints();
 // Replace old ChatHub with unified hub:
 app.MapHub<WaseetHub>("/hubs/waseet");
 //app.MapHub<ChatHub>("/hubs/chat");

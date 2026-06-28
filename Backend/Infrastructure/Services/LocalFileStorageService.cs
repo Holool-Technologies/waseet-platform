@@ -13,6 +13,7 @@ public class LocalFileStorageService : IFileStorageService
         // Pre-create all known folders
         Directory.CreateDirectory(Path.Combine(_wwwRoot, "kyc-docs"));
         Directory.CreateDirectory(Path.Combine(_wwwRoot, "portfolio"));
+        Directory.CreateDirectory(Path.Combine(_wwwRoot, "deliveries"));
     }
 
     public async Task<string> UploadAsync(
@@ -45,4 +46,6 @@ public class LocalFileStorageService : IFileStorageService
             File.Delete(fullPath);
         return Task.CompletedTask;
     }
+
+
 }
