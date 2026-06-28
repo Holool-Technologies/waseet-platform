@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { path: '/admin/portfolio',    label: 'Portfolio Review', icon: '🖼' },
   { path: '/admin/escrow',       label: 'Escrow',          icon: '💰' },
   { path: '/admin/chat-logs',    label: 'Chat Logs',       icon: '💬' },
+  { path: '/admin/disputes',     label: 'Disputes',        icon: '⚖️' }
 ];
 
 @Component({

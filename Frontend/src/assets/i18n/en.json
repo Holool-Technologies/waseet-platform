@@ -133,12 +133,52 @@
     "approve": "Approve",
     "reject": "Reject",
     "taskApproval": "Task Approval",
-    "rejectionReason": "Rejection Reason"
+    "rejectionReason": "Rejection Reason",
+    "disputes": {
+    "title": "Dispute Resolution",
+    "subtitle": "Review chat history and delivery files to resolve disputes",
+    "report": "Client's report",
+    "viewDelivery": "View delivery files",
+    "viewChat": "View chat history",
+    "resolveFreelancer": "Release to Freelancer",
+    "resolveClient": "Refund to Client",
+    "notes": "Resolution notes (sent to both parties)",
+    "noOpenDisputes": "No open disputes"
+  }
   },
   "aiRewrite": {
   "chat":     "✏️ Your message was rephrased to be more professional.",
   "proposal": "✏️ Your cover letter was rephrased to be more professional.",
   "task":     "✏️ Your task title and description were rephrased to be more professional.",
   "title":    "Rephrased by AI"
+},
+"delivery": {
+  "title": "Work Delivery",
+  "submitTitle": "Submit Your Delivery",
+  "note": "Delivery note",
+  "notePlaceholder": "Describe what you've completed and any notes for the client...",
+  "files": "Attach files",
+  "submit": "Submit Delivery",
+  "submitted": "Delivery submitted! The client has been notified.",
+  "awaitingReview": "Awaiting client review",
+  "reviewDeadline": "Auto-release on",
+  "accept": "Accept & Release Payment",
+  "report": "Report a Problem",
+  "reportPlaceholder": "Describe the issue with this delivery in detail (min 20 characters)...",
+  "reportSubmit": "Submit Report",
+  "accepted": "Delivery accepted! Payment has been released.",
+  "disputed": "Dispute opened. An admin will review this case.",
+  "autoReleased": "Payment was automatically released after the review period.",
+  "downloadFile": "Download"
+},
+"deliveryErrors": {
+  "TASK_NOT_ACTIVE": "This task is not active and cannot receive a delivery.",
+  "FILE_REQUIRED": "Please attach at least one file.",
+  "TOO_MANY_FILES": "Maximum 10 files per delivery.",
+  "DELIVERY_ALREADY_RESOLVED": "This delivery has already been resolved.",
+  "REPORT_TOO_SHORT": "Please provide more detail (at least 20 characters).",
+  "ESCROW_NOT_FOUND": "Escrow record not found for this task.",
+  "PAYMENT_RELEASE_FAILED": "Payment release failed. Please contact support."
 }
+
 }

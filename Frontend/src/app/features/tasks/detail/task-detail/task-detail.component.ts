@@ -10,12 +10,13 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { WaseetTask, Proposal, EscrowTransaction } from '../../../../core/models/task.models';
 import { environment } from '../../../../../environments/environment';
+import { DeliveryComponent } from '../../delivery/delivery.component';
 
 
 @Component({
   selector: 'app-task-detail',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, TranslateModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, TranslateModule, DeliveryComponent],
   template: `
     <div class="page">
       <div class="max-w-4xl mx-auto">
@@ -83,6 +84,13 @@ import { environment } from '../../../../../environments/environment';
                   </div>
                 </div>
               </div>
+            }
+            @if (task()!.status === 2 || task()!.status === 3 || task()!.status === 4 || task()!.status === 5) {
+            <app-delivery
+              [taskCode]="task()!.publicTaskCode"
+              [isClient]="auth.isClient() && task()!.clientUserId === auth.currentUser()?.userId"
+              [isFreelancer]="auth.isFreelancer() && task()!.freelancerUserId === auth.currentUser()?.userId">
+            </app-delivery>
             }
 
             <!-- Proposals — client view -->
