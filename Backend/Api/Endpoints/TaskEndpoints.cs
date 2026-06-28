@@ -52,7 +52,7 @@ public static class TaskEndpoints
             return Results.Ok(tasks);
         }).RequireAuthorization();
 
-        // Auth: create task (client + KYC approved)
+        // Auth: create task
         group.MapPost("/", async (
             CreateTaskRequest request,
             ITaskService taskService,

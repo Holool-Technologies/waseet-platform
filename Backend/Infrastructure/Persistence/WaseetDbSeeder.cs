@@ -17,7 +17,6 @@ public static class WaseetDbSeeder
                 Email = "admin@waseet.app",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@Waseet2025!"),
                 Role = UserRole.Admin,
-                KycStatus = KycStatus.Approved,
                 CreatedAt = DateTime.UtcNow
             });
 

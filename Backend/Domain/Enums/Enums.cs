@@ -1,7 +1,6 @@
 ﻿namespace Domain.Enums;
 
 public enum UserRole { Client = 1, Freelancer = 2, Admin = 99 }
-public enum KycStatus { Pending = 0, Approved = 1, Rejected = 2 }
 public enum TaskStatus { Open = 0, Bidding = 1, Active = 2, Completed = 3, Disputed = 4, Delivered = 5, Cancelled = 6  }
 
 public enum ProposalStatus { Pending = 0, Accepted = 1, Rejected = 2 }
@@ -31,7 +30,6 @@ public enum TaskApprovalStatus { PendingApproval = 0, Approved = 1, Rejected = 2
 
 public enum NotificationType
 {
-    KycApproved = 1, KycRejected = 2,
     TaskApproved = 3, TaskRejected = 4,
     ProposalAwarded = 5,
     PortfolioApproved = 6, PortfolioRejected = 7,

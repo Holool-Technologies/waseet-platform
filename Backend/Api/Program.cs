@@ -7,6 +7,10 @@ using Infrastructure.Persistence;
 using Microsoft.OpenApi.Models;
 using Waseet.Api.Endpoints;
 var builder = WebApplication.CreateBuilder(args);
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>();
+}
 
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
@@ -90,7 +94,6 @@ app.MapAuthEndpoints();
 app.MapTaskEndpoints();
 app.MapEscrowEndpoints();
 app.MapChatEndpoints();
-app.MapKycEndpoints();
 app.MapAdminEndpoints();
 app.MapProfileEndpoints();
 app.MapNotificationEndpoints();

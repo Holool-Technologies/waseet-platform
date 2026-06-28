@@ -4,7 +4,6 @@ public record DashboardStatsResponse(
     int TotalUsers,
     int TotalClients,
     int TotalFreelancers,
-    int PendingKyc,
     int TotalTasks,
     int OpenTasks,
     int ActiveTasks,
@@ -21,7 +20,6 @@ public record AdminUserResponse(
     Guid UserId,
     string Email,
     string Role,
-    string KycStatus,
     int TaskCount,
     DateTime CreatedAt,
     bool IsBanned
@@ -38,15 +36,6 @@ public record AdminTaskResponse(
     DateTime CreatedAt
 );
 
-public record AdminKycResponse(
-    Guid KycId,
-    Guid UserId,
-    string UserEmail,
-    string Status,
-    string DocumentBlobRef,
-    DateTime SubmittedAt,
-    DateTime? VerifiedAt
-);
 
 public record AdminEscrowResponse(
     Guid EscrowId,
@@ -77,6 +66,5 @@ public record AdminPagedResult<T>(
 );
 
 public record BanUserRequest(bool Ban);
-public record AdminDecideKycRequest(string Decision);
 public record AdminResolveDisputeRequest(string Resolution); // "release" or "refund"
 public record AdminRejectTaskRequest(string Reason);

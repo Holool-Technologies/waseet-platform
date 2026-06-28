@@ -26,17 +26,11 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Role)
             .IsRequired();
 
-        builder.Property(u => u.KycStatus)
-            .IsRequired()
-            .HasDefaultValue(KycStatus.Pending);
 
         builder.Property(u => u.CreatedAt)
             .IsRequired()
             .HasDefaultValueSql("GETUTCDATE()");
 
-        builder.HasOne(u => u.KycRecord)
-            .WithOne(k => k.User)
-            .HasForeignKey<KycRecord>(k => k.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
+       
     }
 }

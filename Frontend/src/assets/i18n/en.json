@@ -80,15 +80,6 @@
     "release": "Release Payment",
     "dispute": "Raise Dispute"
   },
-  "kyc": {
-    "title": "Identity Verification",
-    "fullName": "Full Name",
-    "uploadDoc": "Upload Document",
-    "submit": "Submit for Verification",
-    "pending": "Verification Pending",
-    "approved": "Verified",
-    "rejected": "Verification Failed"
-  },
   "profile": {
     "title": "My Profile",
     "bio": "Bio",
@@ -106,8 +97,6 @@
     "title": "Notifications",
     "markAllRead": "Mark all read",
     "empty": "No notifications yet",
-    "KycApproved": "Identity Verified",
-    "KycRejected": "Verification Failed",
     "TaskApproved": "Task Published",
     "TaskRejected": "Task Rejected",
     "ProposalAwarded": "You've been selected!",

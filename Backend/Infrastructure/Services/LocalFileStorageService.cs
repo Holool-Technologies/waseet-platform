@@ -11,7 +11,6 @@ public class LocalFileStorageService : IFileStorageService
         _wwwRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
 
         // Pre-create all known folders
-        Directory.CreateDirectory(Path.Combine(_wwwRoot, "kyc-docs"));
         Directory.CreateDirectory(Path.Combine(_wwwRoot, "portfolio"));
         Directory.CreateDirectory(Path.Combine(_wwwRoot, "deliveries"));
     }
@@ -35,7 +34,8 @@ public class LocalFileStorageService : IFileStorageService
         await using var fs = new FileStream(fullPath, FileMode.Create);
         await fileStream.CopyToAsync(fs, ct);
 
-        // Return relative path from wwwroot — e.g. "kyc-docs/abc.pdf"
+        // Return relative path from wwwroot — e.g. "
+        // docs/abc.pdf"
         return $"{safeFolder}/{uniqueName}";
     }
 

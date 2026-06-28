@@ -13,7 +13,6 @@ public record ProposalResponse(
     decimal BidAmount,
     int Status,
     string StatusLabel,
-    bool FreelancerIsVerified,   // NEW
     bool WasRewritten,      // NEW
     DateTime SubmittedAt
 );

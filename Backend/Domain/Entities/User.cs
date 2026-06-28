@@ -8,11 +8,7 @@ public class User
     public string Email { get; set; } = string.Empty; // AES-256 encrypted at infra layer
     public string PasswordHash { get; set; } = string.Empty;
     public UserRole Role { get; set; }
-    public KycStatus KycStatus { get; set; } = KycStatus.Pending;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public bool IsVerified => KycStatus == KycStatus.Approved;
-    public KycRecord? KycRecord { get; set; }
-
     public ICollection<RefreshToken> RefreshTokens { get; set; } = [];
 
     public string? GoogleId { get; set; }

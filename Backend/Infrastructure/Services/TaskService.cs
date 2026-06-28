@@ -34,9 +34,7 @@ public class TaskService : ITaskService
         var user = await _db.Users.FindAsync(new object[] { clientUserId }, ct)
             ?? throw new KeyNotFoundException("User not found.");
 
-        if (user.KycStatus != KycStatus.Approved)
-            throw new InvalidOperationException("KYC verification required before posting tasks.");
-        // بعد الـ KYC check:
+        
         var descSanitized = await _sanitizer.SanitizeAsync(request.Description.Trim(), ct);
 
         if (descSanitized.Blocked)
@@ -223,12 +221,6 @@ public class TaskService : ITaskService
 
         // Get verification status for all bidders in one query
         var bidderIds = proposals.Select(p => p.FreelancerUserId).Distinct().ToList();
-        var verifiedIds = await _db.Users
-            .AsNoTracking()
-            .Where(u => bidderIds.Contains(u.UserId)
-                     && u.KycStatus == Domain.Enums.KycStatus.Approved)
-            .Select(u => u.UserId)
-            .ToHashSetAsync(ct);
 
         // Client: full details. Freelancer: anonymized bids
         if (!isClient|| task.ClientUserId != requestingUserId)
@@ -237,14 +229,14 @@ public class TaskService : ITaskService
                 Guid.Empty, p.TaskId, Guid.Empty,
                 string.Empty, p.BidAmount,
                 (int)p.Status, p.Status.ToString(),
-            verifiedIds.Contains(p.FreelancerUserId), false, p.SubmittedAt));
+                false, p.SubmittedAt));
         }
 
         return proposals.Select(p => new ProposalResponse(
             p.ProposalId, p.TaskId, p.FreelancerUserId,
             p.CoverLetter, p.BidAmount,
             (int)p.Status, p.Status.ToString(),
-            verifiedIds.Contains(p.FreelancerUserId),false, p.SubmittedAt));
+            false, p.SubmittedAt));
     }
 
     public async Task<TaskResponse> AwardProposalAsync(
@@ -466,7 +458,6 @@ public class TaskService : ITaskService
     p.ProposalId, p.TaskId, p.FreelancerUserId,
     p.CoverLetter, p.BidAmount,
     (int)p.Status, p.Status.ToString(),
-    isVerified,
     wasRewritten,
     p.SubmittedAt);
 
