@@ -174,7 +174,7 @@ public class AiSanitizerService : IAiSanitizerService
             GenerationConfig: new GeminiGenerationConfig(
                 ResponseMimeType: "application/json",
                 Temperature: 0.0f,
-                MaxOutputTokens: 512
+                MaxOutputTokens: 2048
             )
         );
 
