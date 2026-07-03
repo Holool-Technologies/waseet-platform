@@ -1,9 +1,11 @@
 ﻿using Application.Features.Admin.Interfaces;
 using Application.Features.Auth.Interfaces;
 using Application.Features.Chat.Interfaces;
+using Application.Features.Delivery.Interfaces;
 using Application.Features.Notifications.Interfaces;
 using Application.Features.Tasks.Interfaces;
 using Domain.Interfaces;
+using Infrastructure.BackgroundJobs;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,10 +14,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Waseet.Application.Features.Delivery.Interfaces;
-using Waseet.Domain.Interfaces;
-using Waseet.Infrastructure.BackgroundJobs;
-using Waseet.Infrastructure.Services;
 
 
 namespace Infrastructure;
@@ -67,6 +65,10 @@ public static class DependencyInjection
         services.AddScoped<ProfileService>();
         services.AddScoped<TaskCodeGenerator>();
         services.AddScoped<AnonymousNameService>();
+        services.AddScoped<IDeliveryService, DeliveryService>();
+        services.AddScoped<IAuditLogService, AuditLogService>();
+        services.AddScoped<IPaymentGatewayService, SimulatedPaymentGatewayService>();
+        services.AddHostedService<AutoReleaseBackgroundService>();
 
         // Payment abstraction — swap SimulatedPaymentGatewayService for a real
         // provider later by changing only this one registration.

@@ -1,18 +1,16 @@
-﻿using Application.Features.Notifications.Interfaces;
+﻿using Application.Features.Delivery.DTOs;
+using Application.Features.Delivery.Interfaces;
+using Application.Features.Delivery.StateMachine;
+using Application.Features.Notifications.Interfaces;
+using Domain.Entities;
 using Domain.Enums;
 using Domain.Interfaces;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Waseet.Application.Features.Delivery.DTOs;
-using Waseet.Application.Features.Delivery.Interfaces;
-using Waseet.Domain.Entities;
-using Waseet.Domain.Interfaces;
-using Waseet.Infrastructure.Persistence;
-
-using TaskStatus = Domain.Enums.TaskStatus;
-
-namespace Waseet.Infrastructure.Services;
+using Task = System.Threading.Tasks.Task;
+using TaskStatus=Domain.Enums.TaskStatus;
+namespace Infrastructure.Services;
 
 public class DeliveryService : IDeliveryService
 {
@@ -20,26 +18,50 @@ public class DeliveryService : IDeliveryService
     private readonly IFileStorageService _storage;
     private readonly IPaymentGatewayService _payments;
     private readonly INotificationService _notifications;
+    private readonly IAuditLogService _audit;
     private readonly ILogger<DeliveryService> _logger;
-
-    // Review window before auto-release kicks in
-    private const int AutoReleaseDays = 5;
 
     public DeliveryService(
         WaseetDbContext db,
         IFileStorageService storage,
         IPaymentGatewayService payments,
         INotificationService notifications,
+        IAuditLogService audit,
         ILogger<DeliveryService> logger)
     {
         _db = db;
         _storage = storage;
         _payments = payments;
         _notifications = notifications;
+        _audit = audit;
         _logger = logger;
     }
 
-    // ── Freelancer submits a delivery ──────────────────────────────────────
+    // ── Settings ──────────────────────────────────────────────────────────────
+
+    private async Task<DeliverySettings> GetSettingsEntityAsync(CancellationToken ct)
+    {
+        return await _db.DeliverySettings.FindAsync([1], ct)
+            ?? new DeliverySettings();
+    }
+
+    public async Task<DeliverySettingsResponse> GetSettingsAsync(CancellationToken ct = default)
+    {
+        var s = await GetSettingsEntityAsync(ct);
+        return new DeliverySettingsResponse(s.ReviewWindowDays, s.MaxRevisions);
+    }
+
+    public async Task UpdateSettingsAsync(
+        int reviewWindowDays, int maxRevisions, CancellationToken ct = default)
+    {
+        var s = await GetSettingsEntityAsync(ct);
+        s.ReviewWindowDays = reviewWindowDays;
+        s.MaxRevisions = maxRevisions;
+        s.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // ── Freelancer: submit delivery ────────────────────────────────────────────
 
     public async Task<DeliveryResponse> SubmitDeliveryAsync(
         Guid freelancerUserId,
@@ -52,26 +74,40 @@ public class DeliveryService : IDeliveryService
             .FirstOrDefaultAsync(t => t.PublicTaskCode == taskCode, ct)
             ?? throw new KeyNotFoundException("Task not found.");
 
+        // Authorization
         if (task.FreelancerUserId != freelancerUserId)
-            throw new UnauthorizedAccessException(
-                "Only the awarded freelancer can deliver this task.");
+            throw new UnauthorizedAccessException("Only the awarded freelancer can submit a delivery.");
 
-        if (task.Status != TaskStatus.Active)
+        // State validation
+        if (task.Status != TaskStatus.Active && task.Status != TaskStatus.Delivered)
             throw new InvalidOperationException("TASK_NOT_ACTIVE");
 
+        // Business rule R2
         if (files.Count == 0)
             throw new InvalidOperationException("FILE_REQUIRED");
-
         if (files.Count > 10)
             throw new InvalidOperationException("TOO_MANY_FILES");
+
+        // Business rule R4 — no open revision
+        var openRevision = await _db.RevisionRequests
+            .AnyAsync(r => r.TaskId == task.TaskId && r.Status == RevisionStatus.Open, ct);
+        if (openRevision)
+            throw new InvalidOperationException("OPEN_REVISION_EXISTS");
+
+        var settings = await GetSettingsEntityAsync(ct);
+
+        // Count existing deliveries to get revision number
+        var deliveryCount = await _db.Deliveries
+            .CountAsync(d => d.TaskId == task.TaskId, ct);
 
         var delivery = new Delivery
         {
             TaskId = task.TaskId,
             FreelancerUserId = freelancerUserId,
+            RevisionNumber = deliveryCount,
             Note = note.Trim(),
             Status = DeliveryStatus.AwaitingReview,
-            ReviewDeadline = DateTime.UtcNow.AddDays(AutoReleaseDays)
+            ReviewDeadline = DateTime.UtcNow.AddDays(settings.ReviewWindowDays)
         };
 
         _db.Deliveries.Add(delivery);
@@ -84,7 +120,7 @@ public class DeliveryService : IDeliveryService
             delivery.Files.Add(new DeliveryFile
             {
                 DeliveryId = delivery.DeliveryId,
-                FileName = fileName,
+                OriginalFileName = fileName,
                 BlobRef = blobRef,
                 SizeBytes = stream.Length,
                 ContentType = contentType
@@ -96,27 +132,38 @@ public class DeliveryService : IDeliveryService
 
         await _db.SaveChangesAsync(ct);
 
-        // Notify the client
+        // Audit
+        await _audit.LogAsync("Delivery", delivery.DeliveryId,
+            "DeliverySubmitted", "Freelancer", freelancerUserId,
+            new
+            {
+                task.PublicTaskCode,
+                RevisionNumber = delivery.RevisionNumber,
+                FileCount = files.Count,
+                settings.ReviewWindowDays
+            });
+
+        // Notify client
         await _notifications.CreateAndPushAsync(
             task.ClientUserId,
-            NotificationType.NewMessage, // reuse generic type or add DeliverySubmitted
-            "Work Delivered",
-            "تم تسليم العمل",
-            $"The freelancer has submitted a delivery for \"{task.Title}\". " +
-            $"Please review within {AutoReleaseDays} days.",
-            $"قام المستقل بتسليم العمل الخاص بمهمة \"{task.Title}\". " +
-            $"يرجى المراجعة خلال {AutoReleaseDays} أيام.",
+            NotificationType.NewMessage,
+            "Work Delivered — Please Review",
+            "تم تسليم العمل — يرجى المراجعة",
+            $"The freelancer submitted a delivery for \"{task.Title}\". " +
+            $"You have {settings.ReviewWindowDays} days to review, accept, request revisions, or open a dispute.",
+            $"قام المستقل بتسليم العمل \"{task.Title}\". " +
+            $"لديك {settings.ReviewWindowDays} أيام للمراجعة والموافقة أو طلب تعديلات أو فتح نزاع.",
             delivery.DeliveryId.ToString(),
             $"/tasks/{task.PublicTaskCode}/delivery",
             ct);
 
-        return MapDelivery(delivery);
+        return await MapDeliveryAsync(delivery, settings.MaxRevisions, ct);
     }
 
-    // ── Get the active (most recent) delivery for a task ───────────────────
+    // ── Get active delivery ───────────────────────────────────────────────────
 
     public async Task<DeliveryResponse?> GetActiveDeliveryAsync(
-        string taskCode, CancellationToken ct = default)
+        string taskCode, Guid requestingUserId, CancellationToken ct = default)
     {
         var delivery = await _db.Deliveries
             .Include(d => d.Files)
@@ -126,58 +173,149 @@ public class DeliveryService : IDeliveryService
             .OrderByDescending(d => d.SubmittedAt)
             .FirstOrDefaultAsync(ct);
 
-        return delivery is null ? null : MapDelivery(delivery);
+        if (delivery is null) return null;
+
+        var isParty = delivery.Task.ClientUserId == requestingUserId
+                   || delivery.Task.FreelancerUserId == requestingUserId;
+
+        if (!isParty) throw new UnauthorizedAccessException("Not authorized.");
+
+        var settings = await GetSettingsEntityAsync(ct);
+        return await MapDeliveryAsync(delivery, settings.MaxRevisions, ct);
     }
 
-    // ── Client accepts — release escrow ─────────────────────────────────────
+    // ── Client: accept delivery ───────────────────────────────────────────────
 
     public async Task<DeliveryResponse> AcceptDeliveryAsync(
         Guid clientUserId, Guid deliveryId, CancellationToken ct = default)
     {
-        var delivery = await _db.Deliveries
-            .Include(d => d.Task)
-            .Include(d => d.Files)
-            .FirstOrDefaultAsync(d => d.DeliveryId == deliveryId, ct)
-            ?? throw new KeyNotFoundException("Delivery not found.");
+        var delivery = await GetDeliveryWithTaskAsync(deliveryId, ct);
 
+        // Authorization
         if (delivery.Task.ClientUserId != clientUserId)
-            throw new UnauthorizedAccessException("Only the task client can accept delivery.");
+            throw new UnauthorizedAccessException("Only the task client can accept.");
 
-        if (delivery.Status != DeliveryStatus.AwaitingReview)
+        // State machine check
+        if (!DeliveryStateMachine.CanTransition(
+            delivery.Status, DeliveryStatus.Accepted, ActorType.Client))
+        {
             throw new InvalidOperationException("DELIVERY_ALREADY_RESOLVED");
+        }
 
-        await ReleaseEscrowAsync(delivery, DeliveryStatus.Accepted, ct);
+        await ReleaseEscrowInternalAsync(
+            delivery, DeliveryStatus.Accepted, clientUserId, "Client", ct);
 
-        return MapDelivery(delivery);
+        var settings = await GetSettingsEntityAsync(ct);
+        return await MapDeliveryAsync(delivery, settings.MaxRevisions, ct);
     }
 
-    // ── Client reports a problem — opens a dispute, freezes escrow ─────────
+    // ── Client: request revision ──────────────────────────────────────────────
 
-    public async Task<DisputeResponse> ReportDeliveryAsync(
-        Guid clientUserId, Guid deliveryId, string report, CancellationToken ct = default)
+    public async Task<RevisionRequestResponse> RequestRevisionAsync(
+        Guid clientUserId, Guid deliveryId, string reason, CancellationToken ct = default)
     {
-        var delivery = await _db.Deliveries
-            .Include(d => d.Task)
-            .FirstOrDefaultAsync(d => d.DeliveryId == deliveryId, ct)
-            ?? throw new KeyNotFoundException("Delivery not found.");
+        var delivery = await GetDeliveryWithTaskAsync(deliveryId, ct);
 
         if (delivery.Task.ClientUserId != clientUserId)
-            throw new UnauthorizedAccessException("Only the task client can report a delivery.");
+            throw new UnauthorizedAccessException("Only the task client can request revisions.");
 
-        if (delivery.Status != DeliveryStatus.AwaitingReview)
+        if (!DeliveryStateMachine.CanTransition(
+            delivery.Status, DeliveryStatus.RevisionRequested, ActorType.Client))
+        {
             throw new InvalidOperationException("DELIVERY_ALREADY_RESOLVED");
+        }
+
+        // Business rule R7 — max revisions
+        var settings = await GetSettingsEntityAsync(ct);
+        var revisionCount = await _db.Deliveries
+            .CountAsync(d => d.TaskId == delivery.TaskId && d.RevisionNumber > 0, ct);
+
+        if (revisionCount >= settings.MaxRevisions)
+            throw new InvalidOperationException("MAX_REVISIONS_REACHED");
+
+        if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length < 10)
+            throw new InvalidOperationException("REASON_TOO_SHORT");
+
+        // Create revision request
+        var revision = new RevisionRequest
+        {
+            DeliveryId = deliveryId,
+            TaskId = delivery.TaskId,
+            RequestedByUserId = clientUserId,
+            Reason = reason.Trim()
+        };
+
+        _db.RevisionRequests.Add(revision);
+
+        delivery.Status = DeliveryStatus.RevisionRequested;
+        delivery.RespondedAt = DateTime.UtcNow;
+        delivery.Task.Status = TaskStatus.Active;
+
+        await _db.SaveChangesAsync(ct);
+
+        // Audit
+        await _audit.LogAsync("Delivery", deliveryId,
+            "RevisionRequested", "Client", clientUserId,
+            new
+            {
+                reason = reason.Trim(),
+                revisionCount = revisionCount + 1,
+                maxRevisions = settings.MaxRevisions
+            });
+
+        // Notify freelancer
+        await _notifications.CreateAndPushAsync(
+            delivery.FreelancerUserId,
+            NotificationType.NewMessage,
+            "Revision Requested",
+            "طُلب منك تعديل",
+            $"The client requested changes for \"{delivery.Task.Title}\". " +
+            $"Reason: {reason.Trim()[..Math.Min(100, reason.Trim().Length)]}",
+            $"طلب العميل تعديلات على مهمة \"{delivery.Task.Title}\". " +
+            $"السبب: {reason.Trim()[..Math.Min(100, reason.Trim().Length)]}",
+            revision.RevisionId.ToString(),
+            $"/tasks/{delivery.Task.PublicTaskCode}/delivery",
+            ct);
+
+        return new RevisionRequestResponse(
+            revision.RevisionId, revision.DeliveryId,
+            revision.Reason, revision.Status.ToString(),
+            revision.CreatedAt);
+    }
+
+    // ── Client: open dispute ──────────────────────────────────────────────────
+
+    public async Task<DisputeResponse> OpenDisputeAsync(
+        Guid clientUserId, Guid deliveryId, string report, CancellationToken ct = default)
+    {
+        var delivery = await GetDeliveryWithTaskAsync(deliveryId, ct);
+
+        if (delivery.Task.ClientUserId != clientUserId)
+            throw new UnauthorizedAccessException("Only the task client can open a dispute.");
+
+        if (!DeliveryStateMachine.CanTransition(
+            delivery.Status, DeliveryStatus.Disputed, ActorType.Client))
+        {
+            throw new InvalidOperationException("DELIVERY_ALREADY_RESOLVED");
+        }
 
         if (string.IsNullOrWhiteSpace(report) || report.Trim().Length < 20)
             throw new InvalidOperationException("REPORT_TOO_SHORT");
 
-        delivery.Status = DeliveryStatus.Disputed;
-        delivery.RespondedAt = DateTime.UtcNow;
+        // Check no existing open dispute
+        var existing = await _db.Disputes
+            .AnyAsync(d => d.DeliveryId == deliveryId && d.Status != DisputeStatus.Resolved, ct);
+        if (existing)
+            throw new InvalidOperationException("DISPUTE_ALREADY_EXISTS");
 
+        // Freeze escrow
         var escrow = await _db.EscrowTransactions
             .FirstOrDefaultAsync(e => e.TaskId == delivery.TaskId, ct);
         if (escrow is not null)
             escrow.Status = EscrowStatus.Disputed;
 
+        delivery.Status = DeliveryStatus.Disputed;
+        delivery.RespondedAt = DateTime.UtcNow;
         delivery.Task.Status = TaskStatus.Disputed;
         delivery.Task.UpdatedAt = DateTime.UtcNow;
 
@@ -186,23 +324,27 @@ public class DeliveryService : IDeliveryService
             DeliveryId = deliveryId,
             TaskId = delivery.TaskId,
             RaisedByUserId = clientUserId,
-            Report = report.Trim(),
-            Status = DisputeStatus.Open
+            Report = report.Trim()
         };
 
         _db.Disputes.Add(dispute);
         await _db.SaveChangesAsync(ct);
 
-        // Notify the freelancer
+        // Audit
+        await _audit.LogAsync("Dispute", dispute.DisputeId,
+            "DisputeOpened", "Client", clientUserId,
+            new { deliveryId, report = report.Trim()[..Math.Min(200, report.Trim().Length)] });
+
+        // Notify freelancer + admin
         await _notifications.CreateAndPushAsync(
             delivery.FreelancerUserId,
-            NotificationType.NewMessage,
-            "Delivery Disputed",
-            "تم الإبلاغ عن مشكلة في التسليم",
-            $"The client raised a concern about your delivery for \"{delivery.Task.Title}\". " +
-            "An admin will review the case.",
-            $"أبلغ العميل عن مشكلة في تسليمك لمهمة \"{delivery.Task.Title}\". " +
-            "سيقوم أحد المشرفين بمراجعة الحالة.",
+            NotificationType.TaskRejected,
+            "Dispute Opened",
+            "تم فتح نزاع",
+            $"The client opened a dispute for \"{delivery.Task.Title}\". " +
+            "An admin will review the case. Escrow is frozen.",
+            $"فتح العميل نزاعاً على مهمة \"{delivery.Task.Title}\". " +
+            "سيقوم مشرف بمراجعة الحالة. الضمان مجمّد.",
             dispute.DisputeId.ToString(),
             $"/tasks/{delivery.Task.PublicTaskCode}/delivery",
             ct);
@@ -210,133 +352,81 @@ public class DeliveryService : IDeliveryService
         return MapDispute(dispute);
     }
 
-    // ── Background job: auto-release deliveries past their deadline ────────
+    // ── System: auto-release ──────────────────────────────────────────────────
 
     public async Task<int> ProcessAutoReleasesAsync(CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
 
-        var dueDeliveries = await _db.Deliveries
+        var due = await _db.Deliveries
             .Include(d => d.Task)
             .Include(d => d.Files)
             .Where(d => d.Status == DeliveryStatus.AwaitingReview
                      && d.ReviewDeadline <= now)
             .ToListAsync(ct);
 
-        int processed = 0;
+        int released = 0;
 
-        foreach (var delivery in dueDeliveries)
+        foreach (var delivery in due)
         {
             try
             {
-                await ReleaseEscrowAsync(delivery, DeliveryStatus.AutoReleased, ct);
-                processed++;
+                await ReleaseEscrowInternalAsync(
+                    delivery, DeliveryStatus.AutoReleased,
+                    null, "System", ct);
+                released++;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
-                    "Auto-release failed for delivery {DeliveryId}", delivery.DeliveryId);
-                // Continue processing other deliveries — one failure shouldn't block the batch
+                    "Auto-release failed for delivery {Id}", delivery.DeliveryId);
             }
         }
 
-        if (processed > 0)
-            _logger.LogInformation(
-                "Auto-released {Count} deliveries past their review deadline.", processed);
-
-        return processed;
+        return released;
     }
 
-    // ── Shared escrow release logic (accept + auto-release both call this) ──
+    // ── Admin: claim dispute ──────────────────────────────────────────────────
 
-    private async Task ReleaseEscrowAsync(
-        Delivery delivery, DeliveryStatus resultStatus, CancellationToken ct)
+    public async Task<DisputeResponse> AdminClaimDisputeAsync(
+        Guid adminId, Guid disputeId, CancellationToken ct = default)
     {
-        var escrow = await _db.EscrowTransactions
-            .FirstOrDefaultAsync(e => e.TaskId == delivery.TaskId, ct)
-            ?? throw new InvalidOperationException("ESCROW_NOT_FOUND");
+        var dispute = await _db.Disputes
+            .FirstOrDefaultAsync(d => d.DisputeId == disputeId, ct)
+            ?? throw new KeyNotFoundException("Dispute not found.");
 
-        if (escrow.Status != EscrowStatus.Held)
-            throw new InvalidOperationException("ESCROW_ALREADY_SETTLED");
+        if (dispute.Status != DisputeStatus.Open)
+            throw new InvalidOperationException("DISPUTE_NOT_OPEN");
 
-        // Call the payment gateway abstraction — simulated today, real provider later
-        var result = await _payments.ReleaseToFreelancerAsync(
-            escrow.EscrowId, escrow.AmountUSD, delivery.FreelancerUserId, ct);
-
-        if (!result.Success)
-        {
-            _logger.LogError(
-                "Payment release failed for escrow {EscrowId}: {Reason}",
-                escrow.EscrowId, result.FailureReason);
-            throw new InvalidOperationException("PAYMENT_RELEASE_FAILED");
-        }
-
-        escrow.Status = EscrowStatus.Released;
-        escrow.ProviderReference = result.ProviderReference;
-
-        delivery.Status = resultStatus;
-        delivery.RespondedAt = DateTime.UtcNow;
-
-        delivery.Task.Status = TaskStatus.Completed;
-        delivery.Task.UpdatedAt = DateTime.UtcNow;
-
-        // Credit the freelancer's profile balance
-        var profile = await _db.FreelancerProfiles
-            .FirstOrDefaultAsync(p => p.UserId == delivery.FreelancerUserId, ct);
-        if (profile is not null)
-        {
-            profile.Balance += escrow.AmountUSD;
-            profile.UpdatedAt = DateTime.UtcNow;
-        }
+        dispute.Status = DisputeStatus.UnderAdminReview;
+        dispute.ClaimedByAdminId = adminId;
+        dispute.ClaimedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
 
-        var titleEn = resultStatus == DeliveryStatus.AutoReleased
-            ? "Payment Auto-Released"
-            : "Delivery Accepted";
-        var titleAr = resultStatus == DeliveryStatus.AutoReleased
-            ? "تم تحرير الدفع تلقائياً"
-            : "تم قبول التسليم";
+        await _audit.LogAsync("Dispute", disputeId,
+            "DisputeClaimed", "Admin", adminId, new { adminId });
 
-        await _notifications.CreateAndPushAsync(
-            delivery.FreelancerUserId,
-            NotificationType.ProposalAwarded,
-            titleEn, titleAr,
-            $"${escrow.AmountUSD:0.00} has been released to your balance for \"{delivery.Task.Title}\".",
-            $"تم تحويل ${escrow.AmountUSD:0.00} إلى رصيدك مقابل مهمة \"{delivery.Task.Title}\".",
-            delivery.DeliveryId.ToString(),
-            "/profile",
-            ct);
+        return MapDispute(dispute);
     }
 
-    // ── Admin dispute review ────────────────────────────────────────────────
-
-    public async Task<IEnumerable<DisputeResponse>> GetOpenDisputesAsync(
-        CancellationToken ct = default)
-    {
-        return await _db.Disputes
-            .AsNoTracking()
-            .Where(d => d.Status == DisputeStatus.Open)
-            .OrderBy(d => d.CreatedAt)
-            .Select(d => new DisputeResponse(
-                d.DisputeId, d.DeliveryId, d.TaskId,
-                d.Report, d.Status.ToString(),
-                d.Resolution.HasValue ? d.Resolution.ToString() : null,
-                d.AdminNotes, d.CreatedAt, d.ResolvedAt))
-            .ToListAsync(ct);
-    }
+    // ── Admin: resolve dispute ────────────────────────────────────────────────
 
     public async Task<DisputeResponse> AdminResolveDisputeAsync(
-        Guid adminId, Guid disputeId, string resolution, string notes,
-        CancellationToken ct = default)
+        Guid adminId, Guid disputeId,
+        string resolution, string notes,
+        CancellationToken ct = default,
+        decimal? freelancerAmount = null, decimal? clientRefundAmount = null
+        )
     {
+        // Load with optimistic concurrency
         var dispute = await _db.Disputes
             .Include(d => d.Task)
             .FirstOrDefaultAsync(d => d.DisputeId == disputeId, ct)
             ?? throw new KeyNotFoundException("Dispute not found.");
 
-        if (dispute.Status != DisputeStatus.Open)
-            throw new InvalidOperationException("DISPUTE_ALREADY_RESOLVED");
+        if (dispute.Status != DisputeStatus.UnderAdminReview)
+            throw new InvalidOperationException("DISPUTE_NOT_UNDER_REVIEW");
 
         var delivery = await _db.Deliveries
             .Include(d => d.Task)
@@ -347,13 +437,20 @@ public class DeliveryService : IDeliveryService
             .FirstOrDefaultAsync(e => e.TaskId == dispute.TaskId, ct)
             ?? throw new InvalidOperationException("ESCROW_NOT_FOUND");
 
-        var favorFreelancer = resolution.Equals(
+        if (escrow.Status != EscrowStatus.Disputed)
+            throw new InvalidOperationException("ESCROW_ALREADY_SETTLED");
+
+        bool favorFreelancer = resolution.Equals(
             "FavorFreelancer", StringComparison.OrdinalIgnoreCase);
+
+        // Determine amounts (supports partial in future)
+        var toFreelancer = freelancerAmount ?? (favorFreelancer ? escrow.AmountUSD : 0);
+        var toClient = clientRefundAmount ?? (favorFreelancer ? 0 : escrow.AmountUSD);
 
         if (favorFreelancer)
         {
             var result = await _payments.ReleaseToFreelancerAsync(
-                escrow.EscrowId, escrow.AmountUSD, delivery.FreelancerUserId, ct);
+                escrow.EscrowId, toFreelancer, delivery.FreelancerUserId, ct);
 
             if (!result.Success)
                 throw new InvalidOperationException("PAYMENT_RELEASE_FAILED");
@@ -362,15 +459,19 @@ public class DeliveryService : IDeliveryService
             escrow.ProviderReference = result.ProviderReference;
             delivery.Task.Status = TaskStatus.Completed;
 
+            // Credit freelancer balance
             var profile = await _db.FreelancerProfiles
                 .FirstOrDefaultAsync(p => p.UserId == delivery.FreelancerUserId, ct);
             if (profile is not null)
-                profile.Balance += escrow.AmountUSD;
+            {
+                profile.Balance += toFreelancer;
+                profile.UpdatedAt = DateTime.UtcNow;
+            }
         }
         else
         {
             var result = await _payments.RefundToClientAsync(
-                escrow.EscrowId, escrow.AmountUSD, dispute.Task.ClientUserId, ct);
+                escrow.EscrowId, toClient, dispute.Task.ClientUserId, ct);
 
             if (!result.Success)
                 throw new InvalidOperationException("PAYMENT_REFUND_FAILED");
@@ -386,55 +487,206 @@ public class DeliveryService : IDeliveryService
             : DisputeResolution.FavorClient;
         dispute.ResolvedByAdminId = adminId;
         dispute.AdminNotes = notes;
+        dispute.FreelancerAmount = toFreelancer;
+        dispute.ClientRefundAmount = toClient;
         dispute.ResolvedAt = DateTime.UtcNow;
-
         delivery.Task.UpdatedAt = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync(ct);
+        // Optimistic concurrency — will throw DbUpdateConcurrencyException if another admin
+        // resolved simultaneously
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new InvalidOperationException("DISPUTE_CONCURRENCY_CONFLICT");
+        }
+
+        // Audit
+        await _audit.LogAsync("Dispute", disputeId,
+            "DisputeResolved", "Admin", adminId,
+            new { resolution, notes, toFreelancer, toClient });
 
         // Notify both parties
-        var winnerId = favorFreelancer ? delivery.FreelancerUserId : dispute.Task.ClientUserId;
-        var amountText = $"${escrow.AmountUSD:0.00}";
+        var winnerId = favorFreelancer
+            ? delivery.FreelancerUserId
+            : dispute.Task.ClientUserId;
+        var loserId = favorFreelancer
+            ? dispute.Task.ClientUserId
+            : delivery.FreelancerUserId;
+        var amount = favorFreelancer ? toFreelancer : toClient;
 
         await _notifications.CreateAndPushAsync(
-            winnerId,
-            NotificationType.ProposalAwarded,
+            winnerId, NotificationType.ProposalAwarded,
             "Dispute Resolved In Your Favor",
             "تم حل النزاع لصالحك",
-            $"The dispute for \"{dispute.Task.Title}\" was resolved in your favor. {amountText} has been settled.",
-            $"تم حل النزاع الخاص بمهمة \"{dispute.Task.Title}\" لصالحك. تم تسوية {amountText}.",
-            dispute.DisputeId.ToString(),
-            "/profile",
-            ct);
+            $"The dispute for \"{dispute.Task.Title}\" was resolved in your favor. " +
+            $"${amount:0.00} has been settled.",
+            $"تم حل النزاع الخاص بمهمة \"{dispute.Task.Title}\" لصالحك. " +
+            $"تم تسوية ${amount:0.00}.",
+            disputeId.ToString(), "/profile", ct);
 
-        var loserId = favorFreelancer ? dispute.Task.ClientUserId : delivery.FreelancerUserId;
         await _notifications.CreateAndPushAsync(
-            loserId,
-            NotificationType.TaskRejected,
-            "Dispute Resolved",
-            "تم حل النزاع",
-            $"The dispute for \"{dispute.Task.Title}\" has been resolved by an admin. {notes}",
-            $"تم حل النزاع الخاص بمهمة \"{dispute.Task.Title}\" من قِبل المشرف. {notes}",
-            dispute.DisputeId.ToString(),
-            "/my-tasks",
-            ct);
+            loserId, NotificationType.TaskRejected,
+            "Dispute Decision",
+            "قرار النزاع",
+            $"The dispute for \"{dispute.Task.Title}\" has been decided by an admin. {notes}",
+            $"تم البت في نزاع مهمة \"{dispute.Task.Title}\" من قِبل مشرف. {notes}",
+            disputeId.ToString(), "/my-tasks", ct);
 
         return MapDispute(dispute);
     }
 
-    // ── Mapping helpers ───────────────────────────────────────────────────
+    // ── Admin: list open disputes ─────────────────────────────────────────────
 
-    private static DeliveryResponse MapDelivery(Delivery d) => new(
-        d.DeliveryId, d.TaskId, d.FreelancerUserId,
-        d.Note, d.Status.ToString(), d.SubmittedAt,
-        d.ReviewDeadline, d.RespondedAt,
-        d.Files.Select(f => new DeliveryFileResponse(
-            f.FileId, f.FileName, $"/deliveries/{Path.GetFileName(f.BlobRef)}",
-            f.SizeBytes, f.ContentType, f.UploadedAt)));
+    public async Task<IEnumerable<DisputeResponse>> GetOpenDisputesAsync(
+        CancellationToken ct = default)
+    {
+        return await _db.Disputes
+            .AsNoTracking()
+            .Where(d => d.Status == DisputeStatus.Open
+                     || d.Status == DisputeStatus.UnderAdminReview)
+            .OrderBy(d => d.CreatedAt)
+            .Select(d => new DisputeResponse(
+                d.DisputeId, d.DeliveryId, d.TaskId,
+                d.Report, d.Status.ToString(),
+                d.Resolution.HasValue ? d.Resolution.ToString() : null,
+                d.FreelancerAmount, d.ClientRefundAmount,
+                d.AdminNotes, d.CreatedAt, d.ResolvedAt))
+            .ToListAsync(ct);
+    }
+
+    // ── Audit log ────────────────────────────────────────────────────────────
+
+    public async Task<IEnumerable<AuditLogResponse>> GetDeliveryAuditLogsAsync(
+        Guid deliveryId, CancellationToken ct = default)
+    {
+        return await _audit.GetLogsAsync("Delivery", deliveryId, ct);
+    }
+
+    // ── Private helpers ──────────────────────────────────────────────────────
+
+    private async Task ReleaseEscrowInternalAsync(
+        Delivery delivery, DeliveryStatus resultStatus,
+        Guid? actorId, string actorType, CancellationToken ct)
+    {
+        var escrow = await _db.EscrowTransactions
+            .FirstOrDefaultAsync(e => e.TaskId == delivery.TaskId, ct)
+            ?? throw new InvalidOperationException("ESCROW_NOT_FOUND");
+
+        if (escrow.Status != EscrowStatus.Held)
+            throw new InvalidOperationException("ESCROW_ALREADY_SETTLED");
+
+        var result = await _payments.ReleaseToFreelancerAsync(
+            escrow.EscrowId, escrow.AmountUSD, delivery.FreelancerUserId, ct);
+
+        if (!result.Success)
+        {
+            _logger.LogError("Payment release failed: {Reason}", result.FailureReason);
+            throw new InvalidOperationException("PAYMENT_RELEASE_FAILED");
+        }
+
+        escrow.Status = EscrowStatus.Released;
+        escrow.ProviderReference = result.ProviderReference;
+
+        delivery.Status = resultStatus;
+        delivery.RespondedAt = DateTime.UtcNow;
+        delivery.Task.Status = TaskStatus.Completed;
+        delivery.Task.UpdatedAt = DateTime.UtcNow;
+
+        // Credit freelancer
+        var profile = await _db.FreelancerProfiles
+            .FirstOrDefaultAsync(p => p.UserId == delivery.FreelancerUserId, ct);
+        if (profile is not null)
+        {
+            profile.Balance += escrow.AmountUSD;
+            profile.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        // Audit
+        await _audit.LogAsync("Delivery", delivery.DeliveryId,
+            resultStatus == DeliveryStatus.AutoReleased
+                ? "DeliveryAutoReleased"
+                : "DeliveryAccepted",
+            actorType, actorId,
+            new
+            {
+                escrowId = escrow.EscrowId,
+                amount = escrow.AmountUSD,
+                providerRef = result.ProviderReference
+            });
+
+        var notifTitleEn = resultStatus == DeliveryStatus.AutoReleased
+            ? "Payment Auto-Released" : "Delivery Accepted — Payment Released";
+        var notifTitleAr = resultStatus == DeliveryStatus.AutoReleased
+            ? "تم تحرير الدفع تلقائياً" : "تم قبول التسليم وتحرير الدفع";
+
+        await _notifications.CreateAndPushAsync(
+            delivery.FreelancerUserId,
+            NotificationType.ProposalAwarded,
+            notifTitleEn, notifTitleAr,
+            $"${escrow.AmountUSD:0.00} has been added to your balance for \"{delivery.Task.Title}\".",
+            $"تمت إضافة ${escrow.AmountUSD:0.00} إلى رصيدك مقابل مهمة \"{delivery.Task.Title}\".",
+            delivery.DeliveryId.ToString(), "/profile", ct);
+
+        if (resultStatus == DeliveryStatus.AutoReleased)
+        {
+            await _notifications.CreateAndPushAsync(
+                delivery.Task.ClientUserId,
+                NotificationType.TaskApproved,
+                "Delivery Auto-Accepted",
+                "تم قبول التسليم تلقائياً",
+                $"The delivery for \"{delivery.Task.Title}\" was automatically accepted after {7} days. " +
+                "Payment has been released to the freelancer.",
+                $"تم قبول تسليم مهمة \"{delivery.Task.Title}\" تلقائياً بعد 7 أيام. " +
+                "تم تحرير الدفع للمستقل.",
+                delivery.DeliveryId.ToString(),
+                $"/tasks/{delivery.Task.PublicTaskCode}/delivery",
+                ct);
+        }
+    }
+
+    private async Task<Delivery> GetDeliveryWithTaskAsync(
+        Guid deliveryId, CancellationToken ct)
+    {
+        return await _db.Deliveries
+            .Include(d => d.Task)
+            .Include(d => d.Files)
+            .FirstOrDefaultAsync(d => d.DeliveryId == deliveryId, ct)
+            ?? throw new KeyNotFoundException("Delivery not found.");
+    }
+
+    private async Task<DeliveryResponse> MapDeliveryAsync(
+        Delivery d, int maxRevisions, CancellationToken ct)
+    {
+        var totalRevisions = await _db.Deliveries
+            .CountAsync(x => x.TaskId == d.TaskId && x.RevisionNumber > 0, ct);
+
+        var staticBase = string.Empty;
+
+        return new DeliveryResponse(
+            d.DeliveryId, d.TaskId,
+            d.Task?.PublicTaskCode ?? string.Empty,
+            d.RevisionNumber,
+            d.Note,
+            d.Status.ToString(),
+            d.SubmittedAt,
+            d.ReviewDeadline,
+            d.RespondedAt,
+            totalRevisions,
+            maxRevisions,
+            d.Files.Select(f => new DeliveryFileResponse(
+                f.FileId, f.OriginalFileName,
+                $"/deliveries/{Path.GetFileName(f.BlobRef)}",
+                f.SizeBytes, f.ContentType, f.UploadedAt)));
+    }
 
     private static DisputeResponse MapDispute(Dispute d) => new(
         d.DisputeId, d.DeliveryId, d.TaskId,
         d.Report, d.Status.ToString(),
-        d.Resolution?.ToString(), d.AdminNotes,
-        d.CreatedAt, d.ResolvedAt);
+        d.Resolution?.ToString(), d.FreelancerAmount, d.ClientRefundAmount,
+        d.AdminNotes, d.CreatedAt, d.ResolvedAt);
 }

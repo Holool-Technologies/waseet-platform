@@ -1,4 +1,4 @@
-﻿namespace Waseet.Domain.Interfaces;
+﻿namespace Domain.Interfaces;
 
 /// <summary>
 /// Abstraction over the payment provider. Today this is implemented by

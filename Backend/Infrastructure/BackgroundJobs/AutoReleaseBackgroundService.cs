@@ -1,19 +1,14 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Application.Features.Delivery.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Waseet.Application.Features.Delivery.Interfaces;
 
-namespace Waseet.Infrastructure.BackgroundJobs;
+namespace Infrastructure.BackgroundJobs;
 
-/// <summary>
-/// Runs every hour. Finds deliveries past their review deadline with no
-/// client response and auto-releases escrow to the freelancer.
-/// </summary>
 public class AutoReleaseBackgroundService : BackgroundService
 {
     private readonly IServiceProvider _services;
     private readonly ILogger<AutoReleaseBackgroundService> _logger;
-    private static readonly TimeSpan Interval = TimeSpan.FromHours(1);
 
     public AutoReleaseBackgroundService(
         IServiceProvider services,
@@ -35,28 +30,18 @@ public class AutoReleaseBackgroundService : BackgroundService
                 var deliveryService = scope.ServiceProvider
                     .GetRequiredService<IDeliveryService>();
 
-                var processed = await deliveryService.ProcessAutoReleasesAsync(stoppingToken);
+                var released = await deliveryService.ProcessAutoReleasesAsync(stoppingToken);
 
-                if (processed > 0)
+                if (released > 0)
                     _logger.LogInformation(
-                        "Auto-release cycle processed {Count} deliveries.", processed);
+                        "Auto-released {Count} deliveries.", released);
             }
             catch (Exception ex)
             {
-                // Never let one failed cycle kill the background service
-                _logger.LogError(ex, "AutoReleaseBackgroundService cycle failed.");
+                _logger.LogError(ex, "AutoRelease cycle failed.");
             }
 
-            try
-            {
-                await Task.Delay(Interval, stoppingToken);
-            }
-            catch (TaskCanceledException)
-            {
-                break;
-            }
+            await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
         }
-
-        _logger.LogInformation("AutoReleaseBackgroundService stopped.");
     }
 }

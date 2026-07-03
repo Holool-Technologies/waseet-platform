@@ -1,20 +1,20 @@
-﻿using Domain.Entities;
-using Domain.Enums;
-using Task = Domain.Entities.Task;
+﻿using Domain.Enums;
 
-namespace Waseet.Domain.Entities;
+namespace Domain.Entities;
 
 public class Delivery
 {
     public Guid DeliveryId { get; set; } = Guid.NewGuid();
     public Guid TaskId { get; set; }
     public Guid FreelancerUserId { get; set; }
+    public int RevisionNumber { get; set; } = 0;   // 0 = initial, 1+ = revisions
     public string Note { get; set; } = string.Empty;
     public DeliveryStatus Status { get; set; } = DeliveryStatus.AwaitingReview;
     public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
-    public DateTime ReviewDeadline { get; set; }   // auto-release trigger date
+    public DateTime ReviewDeadline { get; set; }
     public DateTime? RespondedAt { get; set; }
 
     public Task Task { get; set; } = null!;
     public ICollection<DeliveryFile> Files { get; set; } = [];
+    public ICollection<RevisionRequest> RevisionRequests { get; set; } = [];
 }

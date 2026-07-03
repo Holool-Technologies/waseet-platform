@@ -1,12 +1,9 @@
 using Application.Features.Admin.DTOs;
 using Application.Features.Admin.Interfaces;
 using Application.Features.Tasks.Interfaces;
-using Azure.Core;
-using Infrastructure.Services;
+using Application.Features.Delivery.Interfaces;
 using System.Security.Claims;
-using Waseet.Application.Features.Delivery.Interfaces;
-using Waseet.Application.Features.Delivery.DTOs;
-using AdminResolveDisputeRequest = Waseet.Application.Features.Delivery.DTOs.AdminResolveDisputeRequest;
+using AdminResolveDisputeRequest = Application.Features.Delivery.DTOs.AdminResolveDisputeRequest;
 
 
 namespace Api.Endpoints;

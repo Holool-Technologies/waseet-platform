@@ -1,6 +1,6 @@
-﻿using Waseet.Application.Features.Delivery.DTOs;
+﻿using Application.Features.Delivery.DTOs;
 
-namespace Waseet.Application.Features.Delivery.Interfaces;
+namespace Application.Features.Delivery.Interfaces;
 
 public interface IDeliveryService
 {
@@ -10,19 +10,33 @@ public interface IDeliveryService
         CancellationToken ct = default);
 
     Task<DeliveryResponse?> GetActiveDeliveryAsync(
-        string taskCode, CancellationToken ct = default);
+        string taskCode, Guid requestingUserId, CancellationToken ct = default);
 
     Task<DeliveryResponse> AcceptDeliveryAsync(
         Guid clientUserId, Guid deliveryId, CancellationToken ct = default);
 
-    Task<DisputeResponse> ReportDeliveryAsync(
+    Task<RevisionRequestResponse> RequestRevisionAsync(
+        Guid clientUserId, Guid deliveryId, string reason, CancellationToken ct = default);
+
+    Task<DisputeResponse> OpenDisputeAsync(
         Guid clientUserId, Guid deliveryId, string report, CancellationToken ct = default);
 
     Task<int> ProcessAutoReleasesAsync(CancellationToken ct = default);
 
     Task<IEnumerable<DisputeResponse>> GetOpenDisputesAsync(CancellationToken ct = default);
 
+    Task<DisputeResponse> AdminClaimDisputeAsync(
+        Guid adminId, Guid disputeId, CancellationToken ct = default);
+
     Task<DisputeResponse> AdminResolveDisputeAsync(
-        Guid adminId, Guid disputeId, string resolution, string notes,
-        CancellationToken ct = default);
+        Guid adminId, Guid disputeId,
+        string resolution, string notes, CancellationToken ct = default,
+        decimal? freelancerAmount=null, decimal? clientRefundAmount=null
+        );
+
+    Task<IEnumerable<AuditLogResponse>> GetDeliveryAuditLogsAsync(
+        Guid deliveryId, CancellationToken ct = default);
+
+    Task<DeliverySettingsResponse> GetSettingsAsync(CancellationToken ct = default);
+    Task UpdateSettingsAsync(int reviewWindowDays, int maxRevisions, CancellationToken ct = default);
 }

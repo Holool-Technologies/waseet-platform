@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
-using Waseet.Domain.Interfaces;
-
-namespace Waseet.Infrastructure.Services;
+using Domain.Interfaces;
+namespace Infrastructure.Services;
 
 /// <summary>
 /// Simulated payment gateway — no real money moves. Tracks the operation

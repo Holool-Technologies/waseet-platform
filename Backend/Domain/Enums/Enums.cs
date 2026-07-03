@@ -38,16 +38,22 @@ public enum NotificationType
 
 public enum DeliveryStatus
 {
-    AwaitingReview = 0,   // freelancer submitted, waiting on client
-    Accepted = 1,   // client accepted — escrow released
-    Disputed = 2,   // client reported a problem
-    AutoReleased = 3    // N days passed with no response — auto-accepted
+    AwaitingReview = 0,
+    RevisionRequested = 1,
+    Accepted = 2,
+    AutoReleased = 3,
+    Disputed = 4
 }
-
+public enum RevisionStatus
+{
+    Open = 0,
+    Resolved = 1   // freelancer submitted a new delivery
+}
 public enum DisputeStatus
 {
     Open = 0,
-    Resolved = 1
+    UnderAdminReview = 1,
+    Resolved = 2
 }
 
 public enum DisputeResolution
