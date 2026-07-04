@@ -85,12 +85,13 @@ import { DeliveryComponent } from '../../delivery/delivery.component';
                 </div>
               </div>
             }
-            @if (task()!.status === 2 || task()!.status === 3 || task()!.status === 4 || task()!.status === 5) {
-            <app-delivery
-              [taskCode]="task()!.publicTaskCode"
-              [isClient]="auth.isClient() && task()!.clientUserId === auth.currentUser()?.userId"
-              [isFreelancer]="auth.isFreelancer() && task()!.freelancerUserId === auth.currentUser()?.userId">
-            </app-delivery>
+            <!-- Delivery section — show for Active, Delivered, Completed, Disputed tasks -->
+            @if ([2, 3, 4, 5].includes(task()!.status)) {
+              <app-delivery
+                [taskCode]="task()!.publicTaskCode"
+                [isClient]="isTaskClient()"
+                [isFreelancer]="isTaskFreelancer()">
+              </app-delivery>
             }
 
             <!-- Proposals — client view -->
@@ -513,5 +514,15 @@ submitProposal() {
 
   getEscrowBadge(s: number) {
     return ['badge-amber','badge-green','badge-red','badge-gray'][s] ?? 'badge-gray';
+  }
+
+  isTaskClient(): boolean {
+  return this.auth.isClient()
+    && this.task()?.clientUserId === this.auth.currentUser()?.userId;
+  }
+
+  isTaskFreelancer(): boolean {
+  return this.auth.isFreelancer()
+    && this.task()?.freelancerUserId === this.auth.currentUser()?.userId;
   }
 }

@@ -16,6 +16,7 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'portfolio', loadComponent: () => import('./portfolio/admin-portfolio.component').then(m => m.AdminPortfolioComponent) },
       { path: 'task-approval', loadComponent: () => import('./task-approval/admin-task-approval.component').then(m => m.AdminTaskApprovalComponent) },
       { path: 'disputes', loadComponent: () => import('./disputes/admin-disputes.component').then(m => m.AdminDisputesComponent) },
+      { path: 'delivery-settings', loadComponent: () => import('./delivery-settings/admin-delivery-settings.component').then(m => m.AdminDeliverySettingsComponent)},
     ]
   }
 ];
