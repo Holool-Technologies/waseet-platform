@@ -103,30 +103,30 @@ public static class AdminEndpoints
         });
 
         // Open disputes queue
-        group.MapGet("/disputes", async (
-            IDeliveryService deliveryService, CancellationToken ct) =>
-            Results.Ok(await deliveryService.GetOpenDisputesAsync(ct)));
+        //group.MapGet("/disputes", async (
+        //    IDeliveryService deliveryService, CancellationToken ct) =>
+        //    Results.Ok(await deliveryService.GetOpenDisputesAsync(ct)));
 
         // Resolve a dispute
-        group.MapPost("/disputes/{disputeId:guid}/resolve", async (
-            Guid disputeId,
-            AdminResolveDisputeRequest request,
-            IDeliveryService deliveryService,
-            ClaimsPrincipal user,
-            CancellationToken ct) =>
-        {
-            var adminId = GetUserId(user);
-            try
-            {
-                var result = await deliveryService.AdminResolveDisputeAsync(
-                    adminId, disputeId, request.Resolution, request.AdminNotes, ct);
-                return Results.Ok(result);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Results.BadRequest(new { code = ex.Message });
-            }
-        });
+        //group.MapPost("/disputes/{disputeId:guid}/resolve", async (
+        //    Guid disputeId,
+        //    AdminResolveDisputeRequest request,
+        //    IDeliveryService deliveryService,
+        //    ClaimsPrincipal user,
+        //    CancellationToken ct) =>
+        //{
+        //    var adminId = GetUserId(user);
+        //    try
+        //    {
+        //        var result = await deliveryService.AdminResolveDisputeAsync(
+        //            adminId, disputeId, request.Resolution, request.AdminNotes, ct);
+        //        return Results.Ok(result);
+        //    }
+        //    catch (InvalidOperationException ex)
+        //    {
+        //        return Results.BadRequest(new { code = ex.Message });
+        //    }
+        //});
 
 
     }

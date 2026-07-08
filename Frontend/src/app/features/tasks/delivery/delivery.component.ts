@@ -84,8 +84,7 @@ type ClientAction = 'none' | 'revision' | 'dispute';
 
       <!-- ── FREELANCER: resubmit after revision ──────────── -->
       @if (isFreelancer && delivery()?.status === 'RevisionRequested') {
-        <div class="bg-warning-50 dark:bg-warning-900/20 border border-warning-200
-                    dark:border-warning-800 rounded-xl p-4 space-y-3">
+        <div class="space-y-3">
           <p class="text-sm font-semibold text-warning-700 dark:text-warning-400">
             Revision requested — please submit an updated delivery
           </p>
@@ -250,8 +249,7 @@ type ClientAction = 'none' | 'revision' | 'dispute';
 
           <!-- Dispute form -->
           @if (clientAction() === 'dispute') {
-            <div class="space-y-3 border border-danger-200 dark:border-danger-800
-                        rounded-xl p-4 bg-danger-50 dark:bg-danger-900/10">
+            <div class="space-y-3">
               <p class="text-sm font-semibold text-danger-700 dark:text-danger-400">
                 {{ 'delivery.openDispute' | translate }}
               </p>

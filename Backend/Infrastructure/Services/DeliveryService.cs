@@ -88,11 +88,15 @@ public class DeliveryService : IDeliveryService
         if (files.Count > 10)
             throw new InvalidOperationException("TOO_MANY_FILES");
 
-        // Business rule R4 — no open revision
         var openRevision = await _db.RevisionRequests
-            .AnyAsync(r => r.TaskId == task.TaskId && r.Status == RevisionStatus.Open, ct);
-        if (openRevision)
-            throw new InvalidOperationException("OPEN_REVISION_EXISTS");
+       .Where(r => r.TaskId == task.TaskId && r.Status == RevisionStatus.Open)
+       .FirstOrDefaultAsync(ct);
+
+        if (openRevision is not null)
+        {
+            openRevision.Status = RevisionStatus.Resolved;
+            openRevision.ResolvedAt = DateTime.UtcNow;
+        }
 
         var settings = await GetSettingsEntityAsync(ct);
 
