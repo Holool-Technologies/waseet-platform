@@ -32,5 +32,9 @@ public class DeliveryConfiguration : IEntityTypeConfiguration<Delivery>
             .WithOne(r => r.Delivery)
             .HasForeignKey(r => r.DeliveryId)
             .OnDelete(DeleteBehavior.Cascade);
+        builder.Property(d => d.VideoUrl).HasMaxLength(500);
+        builder.Property(d => d.Links).HasColumnType("NVARCHAR(MAX)").HasDefaultValue("[]");
+        builder.Property(d => d.Checklist).HasColumnType("NVARCHAR(MAX)").HasDefaultValue("[]");
+        builder.Property(d => d.ProgressPercent).HasDefaultValue(100);
     }
 }

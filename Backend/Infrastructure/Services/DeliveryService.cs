@@ -8,6 +8,7 @@ using Domain.Interfaces;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 using Task = System.Threading.Tasks.Task;
 using TaskStatus=Domain.Enums.TaskStatus;
 namespace Infrastructure.Services;
@@ -37,6 +38,60 @@ public class DeliveryService : IDeliveryService
         _logger = logger;
     }
 
+    public async Task<IEnumerable<DeliveryResponse>> GetDeliveryHistoryAsync(
+    string taskCode, Guid requestingUserId, CancellationToken ct = default)
+    {
+        var task = await _db.Tasks.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.PublicTaskCode == taskCode, ct)
+            ?? throw new KeyNotFoundException("Task not found.");
+
+        bool isParty = task.ClientUserId == requestingUserId
+                    || task.FreelancerUserId == requestingUserId;
+
+        if (!isParty)
+            throw new UnauthorizedAccessException("Not authorized.");
+
+        var settings = await GetSettingsEntityAsync(ct);
+
+        var deliveries = await _db.Deliveries
+            .Include(d => d.Files)
+            .Include(d => d.Task)
+            .AsNoTracking()
+            .Where(d => d.TaskId == task.TaskId)
+            .OrderByDescending(d => d.SubmittedAt)
+            .ToListAsync(ct);
+
+        return await Task.WhenAll(
+            deliveries.Select(d => MapDeliveryAsync(d, settings.MaxRevisions, ct)));
+    }
+
+    public async Task<IEnumerable<RevisionRequestResponse>> GetRevisionRequestsAsync(
+        string taskCode, Guid requestingUserId, CancellationToken ct = default)
+    {
+        var task = await _db.Tasks.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.PublicTaskCode == taskCode, ct)
+            ?? throw new KeyNotFoundException("Task not found.");
+
+        bool isParty = task.ClientUserId == requestingUserId
+                    || task.FreelancerUserId == requestingUserId;
+
+        if (!isParty)
+            throw new UnauthorizedAccessException("Not authorized.");
+
+        return await _db.RevisionRequests
+            .AsNoTracking()
+            .Where(r => r.TaskId == task.TaskId)
+            .OrderByDescending(r => r.CreatedAt)
+            .Select(r => new RevisionRequestResponse(
+                r.RevisionId, r.DeliveryId,
+                r.Reason, r.Status.ToString(), r.CreatedAt))
+            .ToListAsync(ct);
+    }
+
+
+
+
+
     // ── Settings ──────────────────────────────────────────────────────────────
 
     private async Task<DeliverySettings> GetSettingsEntityAsync(CancellationToken ct)
@@ -64,11 +119,15 @@ public class DeliveryService : IDeliveryService
     // ── Freelancer: submit delivery ────────────────────────────────────────────
 
     public async Task<DeliveryResponse> SubmitDeliveryAsync(
-        Guid freelancerUserId,
-        string taskCode,
-        string note,
-        List<(Stream Stream, string FileName, string ContentType)> files,
-        CancellationToken ct = default)
+    Guid freelancerUserId,
+    string taskCode,
+    string note,
+    string? videoUrl,
+    List<DeliveryLink> links,
+    List<DeliveryChecklistItem> checklist,
+    int progressPercent,
+    List<(Stream Stream, string FileName, string ContentType)> files,
+    CancellationToken ct = default)
     {
         var task = await _db.Tasks
             .FirstOrDefaultAsync(t => t.PublicTaskCode == taskCode, ct)
@@ -117,9 +176,13 @@ public class DeliveryService : IDeliveryService
             FreelancerUserId = freelancerUserId,
             RevisionNumber = deliveryCount,
             Note = note.Trim(),
-            Status = DeliveryStatus.AwaitingReview,
+            VideoUrl = videoUrl?.Trim(),
+            Links = JsonSerializer.Serialize(links),
+            Checklist = JsonSerializer.Serialize(checklist),
+            ProgressPercent = Math.Clamp(progressPercent, 0, 100),
             ReviewDeadline = DateTime.UtcNow.AddDays(settings.ReviewWindowDays)
         };
+
 
         _db.Deliveries.Add(delivery);
 
@@ -682,19 +745,93 @@ public class DeliveryService : IDeliveryService
             ?? throw new KeyNotFoundException("Delivery not found.");
     }
 
+    
+    public async Task<DisputeCaseResponse> GetDisputeCaseAsync(
+    Guid disputeId, CancellationToken ct = default)
+    {
+        var dispute = await _db.Disputes
+            .Include(d => d.Task)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.DisputeId == disputeId, ct)
+            ?? throw new KeyNotFoundException("Dispute not found.");
+
+        var settings = await GetSettingsEntityAsync(ct);
+
+        // All deliveries for this task
+        var deliveries = await _db.Deliveries
+            .Include(d => d.Files)
+            .AsNoTracking()
+            .Where(d => d.TaskId == dispute.TaskId)
+            .OrderBy(d => d.SubmittedAt)
+            .ToListAsync(ct);
+
+        var deliveryResponses = await Task.WhenAll(
+            deliveries.Select(d => MapDeliveryAsync(d, settings.MaxRevisions, ct)));
+
+        // All revisions
+        var revisions = await _db.RevisionRequests
+            .AsNoTracking()
+            .Where(r => r.TaskId == dispute.TaskId)
+            .OrderBy(r => r.CreatedAt)
+            .Select(r => new RevisionRequestResponse(
+                r.RevisionId, r.DeliveryId,
+                r.Reason, r.Status.ToString(), r.CreatedAt))
+            .ToListAsync(ct);
+
+        // Full audit log
+        var timeline = await _audit.GetLogsAsync(
+            "Delivery", dispute.DeliveryId, ct);
+
+        // Chat history between the two parties
+        var conv = await _db.ChatConversations
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c =>
+                c.TaskId == dispute.TaskId
+                && c.ClientUserId == dispute.Task.ClientUserId, ct);
+
+        var chatHistory = new List<ChatMessageSummary>();
+        if (conv is not null)
+        {
+            chatHistory = await _db.ChatMessages
+                .AsNoTracking()
+                .Where(m => m.ConversationId == conv.ConversationId
+                         && !m.AiFlags.Contains("\"blocked\":true"))
+                .OrderBy(m => m.SentAt)
+                .Select(m => new ChatMessageSummary(
+                    conv.ClientUserId == m.SenderUserId ? "Client" : "Freelancer",
+                    m.SanitizedContent,
+                    m.SentAt))
+                .ToListAsync(ct);
+        }
+
+        return new DisputeCaseResponse(
+            MapDispute(dispute),
+            deliveryResponses,
+            revisions,
+            timeline,
+            chatHistory);
+    }
+
     private async Task<DeliveryResponse> MapDeliveryAsync(
-        Delivery d, int maxRevisions, CancellationToken ct)
+    Delivery d, int maxRevisions, CancellationToken ct)
     {
         var totalRevisions = await _db.Deliveries
             .CountAsync(x => x.TaskId == d.TaskId && x.RevisionNumber > 0, ct);
 
-        var staticBase = string.Empty;
+        var links = JsonSerializer.Deserialize<List<DeliveryLink>>(d.Links)
+                        ?? [];
+        var checklist = JsonSerializer.Deserialize<List<DeliveryChecklistItem>>(d.Checklist)
+                        ?? [];
 
         return new DeliveryResponse(
             d.DeliveryId, d.TaskId,
             d.Task?.PublicTaskCode ?? string.Empty,
             d.RevisionNumber,
             d.Note,
+            d.VideoUrl,
+            links,
+            checklist,
+            d.ProgressPercent,
             d.Status.ToString(),
             d.SubmittedAt,
             d.ReviewDeadline,
@@ -706,7 +843,6 @@ public class DeliveryService : IDeliveryService
                 $"/deliveries/{Path.GetFileName(f.BlobRef)}",
                 f.SizeBytes, f.ContentType, f.UploadedAt)));
     }
-
     private static DisputeResponse MapDispute(Dispute d) => new(
         d.DisputeId, d.DeliveryId, d.TaskId,
         d.Report, d.Status.ToString(),

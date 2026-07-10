@@ -6,20 +6,33 @@ export interface DeliveryFile {
   contentType: string;
   uploadedAt: string;
 }
+export interface DeliveryLink {
+  label: string;
+  url:   string;
+}
+
+export interface DeliveryChecklistItem {
+  item: string;
+  done: boolean;
+}
 
 export interface Delivery {
-  deliveryId: string;
-  taskId: string;
-  taskCode: string;
-  revisionNumber: number;
-  note: string;
-  status: DeliveryStatus;
-  submittedAt: string;
-  reviewDeadline: string;
-  respondedAt: string | null;
-  totalRevisions: number;
-  maxRevisions: number;
-  files: DeliveryFile[];
+  deliveryId:      string;
+  taskId:          string;
+  taskCode:        string;
+  revisionNumber:  number;
+  note:            string;
+  videoUrl:        string | null;
+  links:           DeliveryLink[];
+  checklist:       DeliveryChecklistItem[];
+  progressPercent: number;
+  status:          DeliveryStatus;
+  submittedAt:     string;
+  reviewDeadline:  string;
+  respondedAt:     string | null;
+  totalRevisions:  number;
+  maxRevisions:    number;
+  files:           DeliveryFile[];
 }
 
 export type DeliveryStatus =

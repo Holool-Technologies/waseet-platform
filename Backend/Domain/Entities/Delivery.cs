@@ -16,5 +16,9 @@ public class Delivery
 
     public Task Task { get; set; } = null!;
     public ICollection<DeliveryFile> Files { get; set; } = [];
+    public string? VideoUrl { get; set; }                     // NEW
+    public string Links { get; set; } = "[]";                 // NEW — JSON array of {label, url}
+    public string Checklist { get; set; } = "[]";             // NEW — JSON array of {item, done}
+    public int ProgressPercent { get; set; } = 100;           // NEW — 0-100
     public ICollection<RevisionRequest> RevisionRequests { get; set; } = [];
 }

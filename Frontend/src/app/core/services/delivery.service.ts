@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
-  Delivery, RevisionRequest, Dispute,
+  Delivery, DeliveryLink, DeliveryChecklistItem, RevisionRequest, Dispute,
   AuditLog, DeliverySettings
 } from '../models/delivery.models';
 
@@ -14,12 +14,24 @@ export class DeliveryService {
     `${environment.apiUrl}/tasks/${code}/delivery`;
 
   // Freelancer: submit delivery with files
-  submit(code: string, note: string, files: File[]): Observable<Delivery> {
-    const fd = new FormData();
-    fd.append('note', note);
-    files.forEach(f => fd.append('files', f));
-    return this.http.post<Delivery>(this.base(code), fd);
-  }
+  submit(
+  code:            string,
+  note:            string,
+  files:           File[],
+  videoUrl?:       string,
+  links?:          DeliveryLink[],
+  checklist?:      DeliveryChecklistItem[],
+  progressPercent?: number
+): Observable<Delivery> {
+  const fd = new FormData();
+  fd.append('note',            note);
+  fd.append('videoUrl',        videoUrl        ?? '');
+  fd.append('progressPercent', String(progressPercent ?? 100));
+  fd.append('links',           JSON.stringify(links    ?? []));
+  fd.append('checklist',       JSON.stringify(checklist ?? []));
+  files.forEach(f => fd.append('files', f));
+  return this.http.post<Delivery>(this.base(code), fd);
+}
 
   // Get active delivery for a task
   get(code: string): Observable<Delivery> {

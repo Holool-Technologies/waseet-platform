@@ -75,4 +75,16 @@ export const routes: Routes = [
       import('./features/tasks/my-tasks/my-tasks.component').then((m) => m.MyTasksComponent),
     canActivate: [authGuard],
   },
+  {
+  path: 'my-workspace/:code',
+  loadComponent: () => import('./features/workspace/freelancer-workspace.component')
+    .then(m => m.FreelancerWorkspaceComponent),
+  canActivate: [authGuard]
+},
+{
+  path: 'review/:code',
+  loadComponent: () => import('./features/workspace/client-review.component')
+    .then(m => m.ClientReviewComponent),
+  canActivate: [authGuard]
+},
 ];

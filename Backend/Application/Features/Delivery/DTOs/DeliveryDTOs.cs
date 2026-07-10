@@ -8,12 +8,19 @@ public record DeliveryFileResponse(
     string ContentType,
     DateTime UploadedAt);
 
+public record DeliveryLink(string Label, string Url);
+public record DeliveryChecklistItem(string Item, bool Done);
+
 public record DeliveryResponse(
     Guid DeliveryId,
     Guid TaskId,
     string TaskCode,
     int RevisionNumber,
     string Note,
+    string? VideoUrl,
+    IEnumerable<DeliveryLink> Links,
+    IEnumerable<DeliveryChecklistItem> Checklist,
+    int ProgressPercent,
     string Status,
     DateTime SubmittedAt,
     DateTime ReviewDeadline,
@@ -21,7 +28,6 @@ public record DeliveryResponse(
     int TotalRevisions,
     int MaxRevisions,
     IEnumerable<DeliveryFileResponse> Files);
-
 public record RevisionRequestResponse(
     Guid RevisionId,
     Guid DeliveryId,
@@ -67,3 +73,16 @@ public record AdminResolveDisputeRequest(
 public record DeliverySettingsResponse(
     int ReviewWindowDays,
     int MaxRevisions);
+public record DisputeCaseResponse(
+    DisputeResponse Dispute,
+    IEnumerable<DeliveryResponse> AllDeliveries,
+    IEnumerable<RevisionRequestResponse> AllRevisions,
+    IEnumerable<AuditLogResponse> Timeline,
+    IEnumerable<ChatMessageSummary> ChatHistory
+);
+
+public record ChatMessageSummary(
+    string SenderRole,
+    string Content,
+    DateTime SentAt
+);

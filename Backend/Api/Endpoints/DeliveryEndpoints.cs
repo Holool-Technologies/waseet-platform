@@ -1,6 +1,7 @@
 ﻿using Application.Features.Delivery.DTOs;
 using Application.Features.Delivery.Interfaces;
 using System.Security.Claims;
+using System.Text.Json;
 
 
 namespace Api.Endpoints;
@@ -15,15 +16,29 @@ public static class DeliveryEndpoints
 
         // Freelancer submits delivery
         grp.MapPost("/", async (
-            string code, HttpRequest req,
-            IDeliveryService svc,
-            ClaimsPrincipal user, CancellationToken ct) =>
+    string code, HttpRequest req,
+    IDeliveryService svc,
+    ClaimsPrincipal user, CancellationToken ct) =>
         {
             var uid = GetUid(user);
             var form = await req.ReadFormAsync(ct);
             var note = form["note"].ToString();
-            var raw = form.Files;
+            var videoUrl = form["videoUrl"].ToString();
+            var progressPercent = int.TryParse(form["progressPercent"], out var pp) ? pp : 100;
 
+            // Parse links JSON
+            var linksJson = form["links"].ToString();
+            var links = string.IsNullOrWhiteSpace(linksJson)
+                ? new List<DeliveryLink>()
+                : JsonSerializer.Deserialize<List<DeliveryLink>>(linksJson) ?? [];
+
+            // Parse checklist JSON
+            var checklistJson = form["checklist"].ToString();
+            var checklist = string.IsNullOrWhiteSpace(checklistJson)
+                ? new List<DeliveryChecklistItem>()
+                : JsonSerializer.Deserialize<List<DeliveryChecklistItem>>(checklistJson) ?? [];
+
+            var raw = req.Form.Files;
             if (raw.Count == 0)
                 return Results.BadRequest(new { code = "FILE_REQUIRED" });
 
@@ -32,7 +47,9 @@ public static class DeliveryEndpoints
 
             try
             {
-                var r = await svc.SubmitDeliveryAsync(uid, code, note, files, ct);
+                var r = await svc.SubmitDeliveryAsync(
+                    uid, code, note, videoUrl, links, checklist,
+                    progressPercent, files, ct);
                 return Results.Ok(r);
             }
             catch (UnauthorizedAccessException) { return Results.Forbid(); }
@@ -87,7 +104,29 @@ public static class DeliveryEndpoints
             catch (InvalidOperationException ex)
             { return Results.BadRequest(new { code = ex.Message }); }
         });
+        // All deliveries for a task (history)
+        grp.MapGet("/history", async (
+            string code,
+            IDeliveryService svc,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var uid = GetUid(user);
+            var history = await svc.GetDeliveryHistoryAsync(code, uid, ct);
+            return Results.Ok(history);
+        });
 
+        // All revisions for a task
+        grp.MapGet("/revisions", async (
+            string code,
+            IDeliveryService svc,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var uid = GetUid(user);
+            var revisions = await svc.GetRevisionRequestsAsync(code, uid, ct);
+            return Results.Ok(revisions);
+        });
         // Client opens dispute
         grp.MapPost("/{deliveryId:guid}/dispute", async (
             string code, Guid deliveryId,
@@ -162,6 +201,21 @@ public static class DeliveryEndpoints
         {
             await svc.UpdateSettingsAsync(req.ReviewWindowDays, req.MaxRevisions, ct);
             return Results.NoContent();
+        });
+        admin.MapGet("/disputes/{disputeId:guid}/case", async (
+                   Guid disputeId,
+                  IDeliveryService svc,
+                  CancellationToken ct) =>
+        {
+            try
+            {
+                var r = await svc.GetDisputeCaseAsync(disputeId, ct);
+                return Results.Ok(r);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(new { message = ex.Message });
+            }
         });
     }
 

@@ -5,7 +5,8 @@ namespace Application.Features.Delivery.Interfaces;
 public interface IDeliveryService
 {
     Task<DeliveryResponse> SubmitDeliveryAsync(
-        Guid freelancerUserId, string taskCode, string note,
+        Guid freelancerUserId, string taskCode, string note, 
+        string? videoUrl,List<DeliveryLink> links,List<DeliveryChecklistItem> checklist,int progressPercent,
         List<(Stream Stream, string FileName, string ContentType)> files,
         CancellationToken ct = default);
 
@@ -36,7 +37,14 @@ public interface IDeliveryService
 
     Task<IEnumerable<AuditLogResponse>> GetDeliveryAuditLogsAsync(
         Guid deliveryId, CancellationToken ct = default);
+    Task<IEnumerable<DeliveryResponse>> GetDeliveryHistoryAsync(
+    string taskCode, Guid requestingUserId, CancellationToken ct = default);
 
+    Task<IEnumerable<RevisionRequestResponse>> GetRevisionRequestsAsync(
+        string taskCode, Guid requestingUserId, CancellationToken ct = default);
     Task<DeliverySettingsResponse> GetSettingsAsync(CancellationToken ct = default);
     Task UpdateSettingsAsync(int reviewWindowDays, int maxRevisions, CancellationToken ct = default);
+
+    Task<DisputeCaseResponse> GetDisputeCaseAsync(
+    Guid disputeId, CancellationToken ct = default);
 }

@@ -17,6 +17,7 @@ export const ADMIN_ROUTES: Routes = [
       { path: 'task-approval', loadComponent: () => import('./task-approval/admin-task-approval.component').then(m => m.AdminTaskApprovalComponent) },
       { path: 'disputes', loadComponent: () => import('./disputes/admin-disputes.component').then(m => m.AdminDisputesComponent) },
       { path: 'delivery-settings', loadComponent: () => import('./delivery-settings/admin-delivery-settings.component').then(m => m.AdminDeliverySettingsComponent)},
+      {path: 'disputes/:disputeId',loadComponent: () => import('./disputes/admin-dispute-case.component').then(m => m.AdminDisputeCaseComponent)}
     ]
   }
 ];
