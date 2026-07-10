@@ -226,7 +226,7 @@ public class TaskService : ITaskService
                 p.ProposalId, p.TaskId, p.FreelancerUserId,
                 p.CoverLetter, p.BidAmount,
                 (int)p.Status, p.Status.ToString(),
-                p.WasRewritten, p.SubmittedAt));
+                false, p.SubmittedAt));
         }
 
         // Freelancer: sees ONLY their own proposal with full details
@@ -236,7 +236,7 @@ public class TaskService : ITaskService
                 p.ProposalId, p.TaskId, p.FreelancerUserId,
                 p.CoverLetter, p.BidAmount,
                 (int)p.Status, p.Status.ToString(),
-                p.WasRewritten, p.SubmittedAt))
+                false, p.SubmittedAt))
             .ToList();
 
         return myProposal;
