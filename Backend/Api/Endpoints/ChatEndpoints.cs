@@ -89,6 +89,16 @@ public static class ChatEndpoints
             await chatService.MarkConversationReadAsync(conversationId, userId, ct);
             return Results.NoContent();
         });
+
+        group.MapGet("/unread-count", async (
+            IChatService chatService,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var userId = GetUserId(user);
+            var count  = await chatService.GetTotalUnreadCountAsync(userId, ct);
+            return Results.Ok(new { unreadCount = count });
+        });
     }
 
     private static Guid GetUserId(ClaimsPrincipal user) =>

@@ -58,7 +58,10 @@
     "bidAmount": "Your Bid (USD)",
     "submit": "Submit Proposal",
     "submitted": "Proposal submitted!",
-    "error":     "Failed to submit proposal, please try again."
+    "error":     "Failed to submit proposal, please try again.",
+    "awarded":    "Task awarded!",
+    "awardedMsg": "The freelancer has been notified."
+
   },
   "proposalErrors": {
   "TASK_NOT_ACCEPTING":  "This task is not accepting proposals at the moment.",
@@ -115,7 +118,6 @@
   "MSG_TOO_LONG":            "Message is too long or empty.",
   "UNAUTHORIZED":            "Unauthorized. Please log in again.",
   "INVALID_CONVERSATION":    "Invalid conversation.",
-  "MSG_BLOCKED":             "🚫 Your message was blocked — sharing personal contact info or off-platform communication is not allowed.",
   "NOT_CONVERSATION_PARTY":  "You are not authorized to participate in this conversation.",
   "CONVERSATION_NOT_FOUND":  "Conversation not found.",
   "SEND_FAILED":             "Failed to send message, please try again.",
@@ -125,7 +127,10 @@
   "CONN_FAILED":             "Connection failed, please try again.",
   "LOAD_FAILED":             "Failed to load messages.",
   "ACCESS_DENIED":           "You do not have access to this conversation.",
-  "RECONNECTED":             "Chat connection restored."
+  "RECONNECTED":             "Chat connection restored.",
+  "MSG_BLOCKED_TITLE": "Message not sent",
+  "MSG_BLOCKED": "Your message was blocked — it contained personal contact information or an off-platform communication attempt."
+
 },
   "admin": {
     "portfolio": "Portfolio Review",
@@ -212,6 +217,15 @@
   "PAYMENT_RELEASE_FAILED": "Payment release failed. Please contact support.",
   "PAYMENT_REFUND_FAILED": "Payment refund failed. Please contact support.",
   "DISPUTE_CONCURRENCY_CONFLICT": "Another admin just resolved this dispute. Please refresh."
+},
+"modal": {
+  "cancel":  "Cancel",
+  "confirm": "Confirm",
+  "award": {
+    "title":       "Award this task?",
+    "description": "This will award the task to Bidder-{{n}} and reject all other proposals. This cannot be undone.",
+    "confirm":     "Yes, Award"
+  }
 }
 
 }

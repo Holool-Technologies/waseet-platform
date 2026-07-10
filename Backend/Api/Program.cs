@@ -103,4 +103,13 @@ app.MapHub<WaseetHub>("/hubs/waseet");
 //app.MapHub<ChatHub>("/hubs/chat");
 
 app.UseStaticFiles();
+// After app.Build(), before app.Run() — warm up the DI container
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider
+        .GetRequiredService<WaseetDbContext>();
+    // Touch the DB connection pool on startup so first request isn't slow
+    _ = db.Database.CanConnect();
+});
 app.Run();

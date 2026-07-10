@@ -6,6 +6,7 @@ import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
 import { ChatViewComponent } from '../chat-view/chat-view.component';
 import { environment } from '../../../../environments/environment';
+import { ChatUnreadService } from '../../../core/services/chat-unread.service';
 
 interface Conversation {
   conversationId: string;
@@ -188,6 +189,7 @@ export class ChatInboxComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   auth           = inject(AuthService);
+  chatUnread = inject(ChatUnreadService);
 
   conversations  = signal<Conversation[]>([]);
   selected       = signal<Conversation | null>(null);
@@ -256,21 +258,19 @@ ngOnInit() {
  
 }
 
-  selectConversation(conv: Conversation) {
-    this.selected.set(conv);
-    // Clear unread
-    this.conversations.update(cs =>
-      cs.map(c => c.conversationId === conv.conversationId ? { ...c, unreadCount: 0 } : c));
-      // Persist to backend so refresh doesn't restore the count
+selectConversation(conv: Conversation) {
+  this.selected.set(conv);
+  this.conversations.update(cs =>
+    cs.map(c => c.conversationId === conv.conversationId
+      ? { ...c, unreadCount: 0 } : c));
+
   if (conv.unreadCount > 0) {
+    this.chatUnread.resetForConversation(conv.unreadCount);
     this.http.post(
-      `${environment.apiUrl}/chat/conversation/${conv.conversationId}/read`,
-      {}
-    ).subscribe({
-      error: err => console.warn('Mark read failed:', err)
-    });
+      `${environment.apiUrl}/chat/conversation/${conv.conversationId}/read`, {}
+    ).subscribe();
   }
-  }
+}
 
   formatTime(dateStr: string): string {
     const d = new Date(dateStr);

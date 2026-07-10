@@ -23,6 +23,9 @@ public interface IChatService
     Task<IEnumerable<ConversationResponse>> GetInboxAsync(
         Guid userId, CancellationToken ct = default);
 
+    Task<int> GetTotalUnreadCountAsync(
+        Guid userId, CancellationToken ct = default);
+
     Task EnsureConversationAsync(
         Guid taskId, Guid clientId, Guid freelancerId,
         CancellationToken ct = default);

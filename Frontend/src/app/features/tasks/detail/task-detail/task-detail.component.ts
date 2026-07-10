@@ -11,6 +11,7 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { WaseetTask, Proposal, EscrowTransaction } from '../../../../core/models/task.models';
 import { environment } from '../../../../../environments/environment';
 import { DeliveryComponent } from '../../delivery/delivery.component';
+import { ConfirmService } from '../../../../core/services/confirm.service';
 
 
 @Component({
@@ -217,6 +218,52 @@ import { DeliveryComponent } from '../../delivery/delivery.component';
       </div>
     </div>
 
+        <!-- Freelancer's own proposal — always visible until task ends -->
+    @if (auth.isFreelancer() && myProposal()) {
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-semibold text-neutral-900 dark:text-white">
+            Your Proposal
+          </h2>
+          <span [class]="getProposalStatusBadge(myProposal()!.status)">
+            {{ myProposal()!.statusLabel }}
+          </span>
+        </div>
+
+        <div class="space-y-3">
+          <!-- Bid amount -->
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-neutral-400">Bid:</span>
+            <span class="text-lg font-bold text-brand-600">
+              {{ myProposal()!.bidAmount }}
+            </span>
+          </div>
+
+          <!-- Cover letter -->
+          @if (myProposal()!.coverLetter) {
+            <div>
+              <p class="text-xs text-neutral-400 uppercase tracking-wider mb-1">
+                Cover Letter
+              </p>
+              <p class="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                {{ myProposal()!.coverLetter }}
+              </p>
+              @if (myProposal()!.wasRewritten) {
+                <p class="text-xs text-brand-500 mt-1">
+                  ✏️ This was rephrased by AI to be more professional.
+                </p>
+              }
+            </div>
+          }
+
+          <!-- Submitted date -->
+          <p class="text-xs text-neutral-400">
+            Submitted {{ myProposal()!.submittedAt | date:'d MMM yyyy, HH:mm' }}
+          </p>
+        </div>
+      </div>
+    }
+
     <!-- Bidder profile modal -->
     @if (viewingProfile()) {
       <div class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
@@ -315,8 +362,10 @@ export class TaskDetailComponent implements OnInit {
   auth                = inject(AuthService);
   private fb          = inject(FormBuilder);
  private translate = inject(TranslateService);
+ private confirmService = inject(ConfirmService);
   task             = signal<WaseetTask | null>(null);
   proposals        = signal<Proposal[]>([]);
+  myProposal = signal<Proposal | null>(null);
   escrow           = signal<EscrowTransaction | null>(null);
   loading          = signal(true);
   awarding         = signal('');
@@ -367,15 +416,15 @@ resolveUrl(imageUrl: string): string {
 private loadProposals(code: string) {
   const userId = this.auth.currentUser()?.userId;
   this.taskService.getProposals(code).subscribe({
-    next: (proposals: Proposal[]) => {
-      this.proposals.set(proposals);
-      // Fix 1+3: check if current freelancer already bid
-      // if (this.auth.isFreelancer() && userId) {
-      //   const mine = proposals.find(p => p.freelancerUserId === userId);
-      //   this.hasAlreadyBid.set(!!mine);
-      //   alert(JSON.stringify(!!mine))
-      // }
-    },
+next: (proposals: Proposal[]) => {
+  this.proposals.set(proposals);
+  if (this.auth.isFreelancer()) {
+    const userId = this.auth.currentUser()?.userId;
+    const mine   = proposals.find(p => p.freelancerUserId === userId);
+    this.myProposal.set(mine ?? null);
+    this.hasAlreadyBid.set(!!mine);
+  }
+},
     error: () => {}
   });
 }
@@ -439,20 +488,52 @@ chatFromModal() {
   });
 }
 
-  award(proposal: Proposal) {
-    if (!confirm('Award this task to Bidder? This cannot be undone.')) return;
-    this.awarding.set(proposal.proposalId);
-    this.taskService.awardProposal(this.task()!.publicTaskCode, proposal.proposalId).subscribe({
-      next: () => {
-        this.toast.success('Task awarded!', 'The freelancer has been notified.');
-        this.router.navigate(['/tasks', this.task()!.publicTaskCode]);
-      },
-      error: () => {
-        this.toast.error('Award failed');
-        this.awarding.set('');
-      }
-    });
-  }
+getProposalStatusBadge(status: number): string {
+  return ['badge-amber', 'badge-green', 'badge-red'][status] ?? 'badge-gray';
+}
+
+
+
+async award(proposal: Proposal, index: number) {
+  // Item 1: replace confirm() with modal
+  const confirmed = await this.confirmService.confirm({
+    title:        this.translate.instant('modal.award.title'),
+    description:  this.translate.instant('modal.award.description',
+                    { n: index + 1 }),
+    confirmLabel: this.translate.instant('modal.award.confirm'),
+    danger:       false
+  });
+
+  if (!confirmed) return;
+
+  // Item 2: set loading immediately, prevent double submission
+  if (this.awarding()) return;
+  this.awarding.set(proposal.proposalId);
+  this.confirmService.setLoading(true);
+
+  this.taskService.awardProposal(
+    this.task()!.publicTaskCode,
+    proposal.proposalId
+  ).subscribe({
+    next: () => {
+      // Item 2: stop loading immediately on success
+      this.confirmService.close();
+      this.awarding.set('');
+      this.toast.success(
+        this.translate.instant('proposal.awarded'),
+        this.translate.instant('proposal.awardedMsg')
+      );
+      // Reload task to get updated status
+      this.loadTask();
+    },
+    error: (err) => {
+      this.confirmService.close();
+      this.awarding.set('');
+      const code = err?.error?.code ?? 'AWARD_FAILED';
+      this.toast.error(this.translate.instant(`proposalErrors.${code}`));
+    }
+  });
+}
 
 submitProposal() {
   if (this.proposalForm.invalid || !this.task()) return;
