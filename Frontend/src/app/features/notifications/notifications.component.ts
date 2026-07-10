@@ -2,9 +2,9 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
-import { NotificationService } from '../../core/services/notification.service';
+import { AppNotification, NotificationService } from '../../core/services/notification.service';
 import { LangService } from '../../core/services/lang.service';
-
+import { Router } from '@angular/router';
 @Component({
   selector: 'app-notifications',
   standalone: true,
@@ -62,15 +62,35 @@ import { LangService } from '../../core/services/lang.service';
 export class NotificationsComponent implements OnInit {
   notifService = inject(NotificationService);
   private lang = inject(LangService);
+  private router = inject(Router);
+  private resolveNotifUrl(n: AppNotification): string | null {
+  // Use relatedUrl from backend if set
+  if (n.relatedUrl) return n.relatedUrl;
 
+  // Fallback by type
+  const map: Record<string, string> = {
+    TaskApproved:      '/my-tasks',
+    TaskRejected:      '/my-tasks',
+    ProposalAwarded:   n.relatedUrl ?? '/my-tasks',
+    PortfolioApproved: '/profile',
+    PortfolioRejected: '/profile',
+    NewMessage:        '/chat/inbox',
+    NewProposal:       '/my-tasks',
+  };
+
+  return map[n.type] ?? null;
+}
   ngOnInit() {
     this.notifService.load(this.lang.isArabic() ? 'ar' : 'en', 1, 50);
   }
 
-  onNotifClick(n: any) {
+  onNotifClick(n: AppNotification) {
     if (!n.isRead) this.notifService.markRead(n.notificationId);
-    if (n.relatedUrl) window.location.href = n.relatedUrl;
+
+    const url = this.resolveNotifUrl(n);
+    if (url) this.router.navigateByUrl(url);
   }
+
 
   getIcon(type: string): string {
     const map: Record<string, string> = {
