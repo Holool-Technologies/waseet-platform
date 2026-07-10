@@ -88,6 +88,18 @@ public class ChatService : IChatService
             convId, taskId, task.PublicTaskCode, alias);
     }
 
+    public async Task<int> GetTotalUnreadCountAsync(
+    Guid userId, CancellationToken ct = default)
+    {
+        return await _db.ChatConversations
+            .AsNoTracking()
+            .Where(c => c.ClientUserId     == userId
+                    || c.FreelancerUserId == userId)
+            .SumAsync(c => c.ClientUserId == userId
+                ? c.ClientUnreadCount
+                : c.FreelancerUnreadCount, ct);
+    }
+
     /// <summary>
     /// Creates conversation row on first message (lazy creation).
     /// </summary>
@@ -151,6 +163,18 @@ public class ChatService : IChatService
         var senderRole = isClient ? "Client" : "Freelancer";
 
         var sanitized = await _sanitizer.SanitizeAsync(rawContent, ct);
+
+        if (sanitized.Blocked)
+            {
+                return new ChatMessageResponse(
+                    Guid.Empty, conv.TaskId, conversationId,
+                    senderUserId, senderRole,
+                    string.Empty,   // empty content
+                    true,           // pii_detected
+                    true,           // blocked
+                    false,          // wasRewritten
+                    DateTime.UtcNow);
+            }
         var encryptedOriginal = _encryption.Encrypt(rawContent);
 
         var aiFlags = JsonSerializer.Serialize(new

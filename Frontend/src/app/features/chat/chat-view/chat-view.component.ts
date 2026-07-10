@@ -65,11 +65,7 @@ export interface ChatMsg {
                   {{ mine ? 'You' : msg.senderRole }}
                 </p>
                 <div [class]="getBubbleClass(msg, mine)">
-                  @if (msg.blocked) {
-                    <p class="text-xs italic opacity-70 flex items-center gap-1">
-                      <span>⚠</span> Message blocked
-                    </p>
-                  } @else {
+                 @else {
                     @if (msg.piiDetected) {
                       <p class="text-[10px] opacity-60 mb-1 flex items-center gap-1">
                         <span>🔒</span> Personal info removed
@@ -194,11 +190,16 @@ export class ChatViewComponent implements OnInit, OnDestroy, AfterViewChecked, O
  private t(code: string): string {
   return this.translate.instant(`chatErrors.${code}`);
 }
-// استبدل كل رسائل الخطأ:
+
 private handleBlocked = (code: string) => {
-  this.errorMsg.set(this.t(code));
+  // Item 5: only show toast to sender — no chat bubble
+  this.toast.warning(
+    this.translate.instant('chatErrors.MSG_BLOCKED_TITLE'),
+    this.translate.instant(`chatErrors.${code}`)
+  );
   this.sending.set(false);
   clearTimeout(this.sendTimeout);
+  // Do NOT add to messages list
 };
 
 private handleError = (code: string) => {
@@ -212,29 +213,7 @@ private handleError = (code: string) => {
     !this.sending() &&
     this.text.length <= 2000;
 
-  // Named handlers
- private onMessage = (msg: ChatMsg) => {
-  if (this.seenIds.has(msg.messageId)) return;
-  if (msg.conversationId !== this.conversationId) return;
 
-  this.seenIds.add(msg.messageId);
-  this.messages.update(m => [...m, msg]);
-  this.shouldScroll = true;
-  this.sending.set(false);
-  clearTimeout(this.sendTimeout);
-
-  // لو رسالة المستخدم نفسه اتغيرت — بلّغه
-  if (this.isMine(msg) && msg.wasRewritten) {
-    this.toast.info(
-      this.translate.instant('aiRewrite.title'),
-      this.translate.instant('aiRewrite.chat')
-    );
-  }
-
-  if (!this.isMine(msg)) {
-    this.markRead();
-  }
-};
 // Add this method to ChatViewComponent:
  private markRead(): void {
    if (!this.conversationId) return;
@@ -252,6 +231,28 @@ private handleError = (code: string) => {
     clearTimeout(this.typingTimer);
     this.typingTimer = setTimeout(() => this.isTyping.set(false), 2500);
   };
+
+  private onMessage = (msg: ChatMsg) => {
+  // Item 5: never render blocked messages in chat history
+  if (msg.blocked) return;
+
+  if (this.seenIds.has(msg.messageId)) return;
+  if (msg.conversationId !== this.conversationId) return;
+
+  this.seenIds.add(msg.messageId);
+  this.messages.update(m => [...m, msg]);
+  this.shouldScroll = true;
+  this.sending.set(false);
+  clearTimeout(this.sendTimeout);
+
+  if (this.isMine(msg) && msg.wasRewritten) {
+    this.toast.info(
+      this.translate.instant('aiRewrite.title'),
+      this.translate.instant('aiRewrite.chat')
+    );
+  }
+  if (!this.isMine(msg)) this.markRead();
+};
 
   private onBlocked = (r: string) => {
     this.errorMsg.set(r);
@@ -315,8 +316,10 @@ private handleError = (code: string) => {
       { params }
     ).subscribe({
       next: msgs => {
-        msgs.forEach(m => this.seenIds.add(m.messageId));
-        this.messages.set(msgs);
+        // Item 5: filter out blocked messages from history
+        const clean = msgs.filter(m => !m.blocked);
+        clean.forEach(m => this.seenIds.add(m.messageId));
+        this.messages.set(clean);
         this.shouldScroll = true;
         this.historyLoading.set(false);
       },

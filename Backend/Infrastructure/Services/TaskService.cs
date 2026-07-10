@@ -203,10 +203,10 @@ public class TaskService : ITaskService
     }
 
     public async Task<IEnumerable<ProposalResponse>> GetProposalsAsync(
-      Guid requestingUserId,
-      string taskCode,
-      bool isClient,
-      CancellationToken ct = default)
+        Guid requestingUserId,
+        string taskCode,
+        bool isClient,
+        CancellationToken ct = default)
     {
         var task = await _db.Tasks
             .AsNoTracking()
@@ -219,24 +219,27 @@ public class TaskService : ITaskService
             .OrderBy(p => p.SubmittedAt)
             .ToListAsync(ct);
 
-        // Get verification status for all bidders in one query
-        var bidderIds = proposals.Select(p => p.FreelancerUserId).Distinct().ToList();
-
-        // Client: full details. Freelancer: anonymized bids
-        if (!isClient|| task.ClientUserId != requestingUserId)
+        // Client: sees all proposals with full details
+        if (isClient && task.ClientUserId == requestingUserId)
         {
             return proposals.Select(p => new ProposalResponse(
-                Guid.Empty, p.TaskId, Guid.Empty,
-                string.Empty, p.BidAmount,
+                p.ProposalId, p.TaskId, p.FreelancerUserId,
+                p.CoverLetter, p.BidAmount,
                 (int)p.Status, p.Status.ToString(),
-                false, p.SubmittedAt));
+                p.WasRewritten, p.SubmittedAt));
         }
 
-        return proposals.Select(p => new ProposalResponse(
-            p.ProposalId, p.TaskId, p.FreelancerUserId,
-            p.CoverLetter, p.BidAmount,
-            (int)p.Status, p.Status.ToString(),
-            false, p.SubmittedAt));
+        // Freelancer: sees ONLY their own proposal with full details
+        var myProposal = proposals
+            .Where(p => p.FreelancerUserId == requestingUserId)
+            .Select(p => new ProposalResponse(
+                p.ProposalId, p.TaskId, p.FreelancerUserId,
+                p.CoverLetter, p.BidAmount,
+                (int)p.Status, p.Status.ToString(),
+                p.WasRewritten, p.SubmittedAt))
+            .ToList();
+
+        return myProposal;
     }
 
     public async Task<TaskResponse> AwardProposalAsync(

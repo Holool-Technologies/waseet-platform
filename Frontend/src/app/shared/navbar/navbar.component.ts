@@ -7,6 +7,7 @@ import { LangService } from '../../core/services/lang.service';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { HubService } from '../../core/services/hub.service';
+import { ChatUnreadService } from '../../core/services/chat-unread.service';
 
 @Component({
   selector: 'app-navbar',
@@ -61,14 +62,19 @@ import { HubService } from '../../core/services/hub.service';
             <!-- Chat inbox icon -->
             @if (auth.isLoggedIn()) {
               <a routerLink="/chat/inbox"
-                 class="relative w-9 h-9 flex items-center justify-center rounded-xl text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+                class="relative w-9 h-9 flex items-center justify-center
+                        rounded-xl text-neutral-500 dark:text-neutral-400
+                        hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2
+                      2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
                 </svg>
-                @if (totalUnreadMessages() > 0) {
-                  <span class="absolute -top-0.5 -end-0.5 w-4 h-4 bg-brand-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {{ totalUnreadMessages() > 9 ? '9+' : totalUnreadMessages() }}
+                @if (chatUnread.unreadCount() > 0) {
+                  <span class="absolute -top-0.5 -end-0.5 w-4 h-4 bg-brand-600
+                              text-white text-[9px] font-bold rounded-full
+                              flex items-center justify-center">
+                    {{ chatUnread.unreadCount() > 9 ? '9+' : chatUnread.unreadCount() }}
                   </span>
                 }
               </a>
@@ -232,6 +238,7 @@ export class NavbarComponent implements OnInit {
   auth = inject(AuthService);
   notifService = inject(NotificationService);
   private hub = inject(HubService);
+  chatUnread = inject(ChatUnreadService);
   isAdmin = computed(() => this.auth.currentUser()?.role === 99);
   router = inject(Router);
   notifOpen = signal(false);
@@ -240,7 +247,8 @@ export class NavbarComponent implements OnInit {
 
 
   ngOnInit() {
-    if (this.auth.isLoggedIn()) {
+    if (this.auth.isLoggedIn()
+        && !this.router.url.startsWith('/auth')) {
       this.hub.connect();
       this.notifService.load(this.lang.isArabic() ? 'ar' : 'en');
     }

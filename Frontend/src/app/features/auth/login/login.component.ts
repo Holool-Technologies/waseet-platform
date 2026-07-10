@@ -6,6 +6,7 @@ import { CommonModule } from '@angular/common';
 import { finalize } from 'rxjs/operators';
 import { AuthService } from '../../../core/services/auth.service';
 import { SocialAuthService, GoogleLoginProvider } from '@abacritt/angularx-social-login';
+import { HubService } from '../../../core/services/hub.service';
 
 @Component({
   selector: 'app-login',
@@ -119,6 +120,7 @@ export class LoginComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
   private socialAuth = inject(SocialAuthService);
+  private hub = inject(HubService);
 
   loading = signal(false);
   googleLoading = signal(false);
@@ -138,15 +140,12 @@ export class LoginComponent {
   this.loading.set(true);
 
   this.auth.login(this.form.value as any).subscribe({
-    next: (res) => {
-      // Fix 5: redirect based on role
-      const role = this.auth.currentUser()?.role;
-      if (role === 99) {
-        this.router.navigate(['/admin/dashboard']);
-      } else {
-        this.router.navigate(['/dashboard']);
-      }
-    },
+  next: () => {
+    const role = this.auth.currentUser()?.role;
+    // Connect hub after login — not on page load
+    this.hub.connect().catch(() => {});
+    this.router.navigate([role === 99 ? '/admin/dashboard' : '/dashboard']);
+  },
     error: (err) => {
       this.loading.set(false);
       const code = err?.error?.code;
