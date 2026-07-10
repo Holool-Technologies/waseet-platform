@@ -1,7 +1,4 @@
-import {
-  Component, inject, Input, OnInit,
-  signal, computed
-} from '@angular/core';
+import { Component, inject, Input, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -9,13 +6,16 @@ import { DeliveryService } from '../../../core/services/delivery.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Delivery, DeliveryFile } from '../../../core/models/delivery.models';
-
+import {
+  FilePreviewComponent,
+  PreviewFile,
+} from '../../../shared/file-preview/file-preview.component';
 type ClientAction = 'none' | 'revision' | 'dispute';
 
 @Component({
   selector: 'app-delivery',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule],
+  imports: [CommonModule, FormsModule, TranslateModule, FilePreviewComponent],
   template: `
     <div class="card p-6 space-y-5">
 
@@ -48,25 +48,23 @@ type ClientAction = 'none' | 'revision' | 'dispute';
           </div>
 
           <div>
-            <label class="input-label">{{ 'delivery.attachFiles' | translate }}</label>
-            <input type="file" multiple accept="*/*"
-              (change)="onFilesSelected($event)"
-              class="block w-full text-sm text-neutral-500
-                     file:me-3 file:py-2 file:px-4 file:rounded-xl file:border-0
-                     file:bg-brand-50 dark:file:bg-brand-900/20
-                     file:text-brand-700 dark:file:text-brand-400
-                     file:text-sm file:font-medium
-                     hover:file:bg-brand-100 dark:hover:file:bg-brand-900/30" />
+  <label class="input-label">{{ 'delivery.attachFiles' | translate }}</label>
+  <input type="file" multiple accept="*/*"
+    (change)="onFilesSelected($event)"
+    class="block w-full text-sm text-neutral-500
+           file:me-3 file:py-2 file:px-4 file:rounded-xl file:border-0
+           file:bg-brand-50 dark:file:bg-brand-900/20
+           file:text-brand-700 dark:file:text-brand-400
+           file:font-medium hover:file:bg-brand-100 mb-3" />
 
-            @if (selectedFiles.length) {
-              <div class="flex flex-wrap gap-2 mt-2">
-                @for (f of selectedFiles; track f.name) {
-                  <span class="badge-gray text-xs">
-                    {{ f.name }}
-                    ({{ svc.formatSize(f.size) }})
-                  </span>
-                }
-              </div>
+  @if (previewFiles().length) {
+    <app-file-preview
+      [files]="previewFiles()"
+      [removable]="true"
+      [onRemove]="removeFile.bind(this)">
+    </app-file-preview>
+  }
+</div>
             }
           </div>
 
@@ -95,11 +93,20 @@ type ClientAction = 'none' | 'revision' | 'dispute';
             </textarea>
           </div>
           <input type="file" multiple accept="*/*"
-            (change)="onFilesSelected($event)"
-            class="block w-full text-sm text-neutral-500
-                   file:me-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0
-                   file:bg-brand-50 dark:file:bg-brand-900/20
-                   file:text-brand-700 dark:file:text-brand-400 file:text-xs" />
+    (change)="onFilesSelected($event)"
+    class="block w-full text-sm text-neutral-500
+           file:me-3 file:py-2 file:px-4 file:rounded-xl file:border-0
+           file:bg-brand-50 dark:file:bg-brand-900/20
+           file:text-brand-700 dark:file:text-brand-400
+           file:font-medium hover:file:bg-brand-100 mb-3" />
+
+  @if (previewFiles().length) {
+    <app-file-preview
+      [files]="previewFiles()"
+      [removable]="true"
+      [onRemove]="removeFile.bind(this)">
+    </app-file-preview>
+  }
           <button (click)="submitDelivery()"
             [disabled]="!selectedFiles.length || submitting()"
             class="btn-primary btn-sm">
@@ -122,42 +129,10 @@ type ClientAction = 'none' | 'revision' | 'dispute';
         }
 
         <!-- Files -->
-        @if (delivery()!.files.length) {
-          <div class="space-y-2">
-            @for (f of delivery()!.files; track f.fileId) {
-              <a [href]="svc.resolveFileUrl(f.fileUrl)"
-                 target="_blank" rel="noopener"
-                 class="flex items-center gap-3 p-3 rounded-xl border
-                        border-neutral-100 dark:border-neutral-800
-                        hover:border-brand-200 dark:hover:border-brand-800
-                        transition-colors group">
-                <div class="w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/30
-                            flex items-center justify-center flex-shrink-0">
-                  <svg class="w-4 h-4 text-brand-600 dark:text-brand-400"
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                      stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5
-                      a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0
-                      01.293.707V19a2 2 0 01-2 2z"/>
-                  </svg>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-neutral-900 dark:text-white
-                             truncate">{{ f.originalFileName }}</p>
-                  <p class="text-xs text-neutral-400">
-                    {{ svc.formatSize(f.sizeBytes) }}
-                    · {{ f.uploadedAt | date:'d MMM yyyy' }}
-                  </p>
-                </div>
-                <span class="text-xs text-brand-600 dark:text-brand-400
-                             opacity-0 group-hover:opacity-100 transition-opacity
-                             flex-shrink-0">
-                  {{ 'delivery.downloadFile' | translate }} ↓
-                </span>
-              </a>
-            }
-          </div>
-        }
+        <!-- Replace the existing files loop with: -->
+@if (delivery()!.files.length) {
+  <app-file-preview [files]="deliveryPreviewFiles()"></app-file-preview>
+}
 
         <!-- Auto-release countdown -->
         @if (delivery()!.status === 'AwaitingReview') {
@@ -334,79 +309,103 @@ type ClientAction = 'none' | 'revision' | 'dispute';
       }
 
     </div>
-  `
+  `,
 })
 export class DeliveryComponent implements OnInit {
   @Input({ required: true }) taskCode!: string;
-  @Input() isClient  = false;
+  @Input() isClient = false;
   @Input() isFreelancer = false;
 
-  svc       = inject(DeliveryService);
-  private auth     = inject(AuthService);
-  private toast    = inject(ToastService);
+  svc = inject(DeliveryService);
+  private auth = inject(AuthService);
+  private toast = inject(ToastService);
   private translate = inject(TranslateService);
+  // Map backend files to PreviewFile format
+  deliveryPreviewFiles = computed(() =>
+    (this.delivery()?.files ?? []).map(
+      (f) =>
+        ({
+          name: f.originalFileName,
+          size: f.sizeBytes,
+          type: f.contentType,
+          url: this.svc.resolveFileUrl(f.fileUrl),
+        }) as PreviewFile,
+    ),
+  );
+  delivery = signal<Delivery | null>(null);
+  submitting = signal(false);
+  acting = signal(false);
+  clientAction = signal<ClientAction>('none');
 
-  delivery      = signal<Delivery | null>(null);
-  submitting    = signal(false);
-  acting        = signal(false);
-  clientAction  = signal<ClientAction>('none');
-
-  note           = '';
+  note = '';
   revisionReason = '';
-  disputeReport  = '';
-  selectedFiles: File[] = [];
-
+  disputeReport = '';
+  // Replace selectedFiles: File[] with:
+  previewFiles = signal<PreviewFile[]>([]);
   statusBadge = computed(() => {
     const map: Record<string, string> = {
-      AwaitingReview:    'badge-amber',
+      AwaitingReview: 'badge-amber',
       RevisionRequested: 'badge-blue',
-      Accepted:          'badge-green',
-      AutoReleased:      'badge-green',
-      Disputed:          'badge-red'
+      Accepted: 'badge-green',
+      AutoReleased: 'badge-green',
+      Disputed: 'badge-red',
     };
     return map[this.delivery()?.status ?? ''] ?? 'badge-gray';
   });
 
   statusLabel = computed(() => {
     const map: Record<string, string> = {
-      AwaitingReview:    this.translate.instant('delivery.awaitingReview'),
+      AwaitingReview: this.translate.instant('delivery.awaitingReview'),
       RevisionRequested: this.translate.instant('delivery.revisionRequested'),
-      Accepted:          this.translate.instant('delivery.accepted'),
-      AutoReleased:      this.translate.instant('delivery.autoReleased'),
-      Disputed:          this.translate.instant('delivery.disputed')
+      Accepted: this.translate.instant('delivery.accepted'),
+      AutoReleased: this.translate.instant('delivery.autoReleased'),
+      Disputed: this.translate.instant('delivery.disputed'),
     };
     return map[this.delivery()?.status ?? ''] ?? '';
   });
 
-  ngOnInit() { this.load(); }
+  ngOnInit() {
+    this.load();
+  }
 
   load() {
     this.svc.get(this.taskCode).subscribe({
-      next: d  => this.delivery.set(d),
-      error: () => this.delivery.set(null)
+      next: (d) => this.delivery.set(d),
+      error: () => this.delivery.set(null),
     });
   }
 
   onFilesSelected(e: Event) {
-    const files = (e.target as HTMLInputElement).files;
-    if (files) this.selectedFiles = Array.from(files);
+    const files = Array.from((e.target as HTMLInputElement).files ?? []);
+    this.previewFiles.set(
+      files.map((f) => ({
+        file: f,
+        name: f.name,
+        size: f.size,
+        type: f.type,
+      })),
+    );
+  }
+  removeFile(f: PreviewFile) {
+    this.previewFiles.update((fs) => fs.filter((x) => x.name !== f.name));
   }
 
   submitDelivery() {
-    if (!this.selectedFiles.length) return;
+    const rawFiles = this.previewFiles().map((pf) => pf.file!);
+    if (!this.previewFiles().length) return;
     this.submitting.set(true);
-    this.svc.submit(this.taskCode, this.note, this.selectedFiles).subscribe({
-      next: d => {
+    this.svc.submit(this.taskCode, this.note, rawFiles).subscribe({
+      next: (d) => {
         this.delivery.set(d);
         this.submitting.set(false);
         this.note = '';
-        this.selectedFiles = [];
+        this.previewFiles.set([]);
         this.toast.success(this.translate.instant('delivery.submitted'));
       },
-      error: err => {
+      error: (err) => {
         this.submitting.set(false);
         this.showError(err);
-      }
+      },
     });
   }
 
@@ -414,51 +413,58 @@ export class DeliveryComponent implements OnInit {
     if (!this.delivery()) return;
     this.acting.set(true);
     this.svc.accept(this.taskCode, this.delivery()!.deliveryId).subscribe({
-      next: d => {
+      next: (d) => {
         this.delivery.set(d);
         this.acting.set(false);
         this.toast.success(this.translate.instant('delivery.acceptedMsg'));
       },
-      error: err => { this.acting.set(false); this.showError(err); }
+      error: (err) => {
+        this.acting.set(false);
+        this.showError(err);
+      },
     });
   }
 
   submitRevision() {
     if (!this.delivery() || this.revisionReason.trim().length < 10) return;
     this.acting.set(true);
-    this.svc.requestRevision(
-      this.taskCode, this.delivery()!.deliveryId, this.revisionReason
-    ).subscribe({
-      next: () => {
-        this.acting.set(false);
-        this.clientAction.set('none');
-        this.revisionReason = '';
-        this.toast.info(this.translate.instant('delivery.revisedMsg'));
-        this.load();
-      },
-      error: err => { this.acting.set(false); this.showError(err); }
-    });
+    this.svc
+      .requestRevision(this.taskCode, this.delivery()!.deliveryId, this.revisionReason)
+      .subscribe({
+        next: () => {
+          this.acting.set(false);
+          this.clientAction.set('none');
+          this.revisionReason = '';
+          this.toast.info(this.translate.instant('delivery.revisedMsg'));
+          this.load();
+        },
+        error: (err) => {
+          this.acting.set(false);
+          this.showError(err);
+        },
+      });
   }
 
   submitDispute() {
     if (!this.delivery() || this.disputeReport.trim().length < 20) return;
     this.acting.set(true);
-    this.svc.openDispute(
-      this.taskCode, this.delivery()!.deliveryId, this.disputeReport
-    ).subscribe({
+    this.svc.openDispute(this.taskCode, this.delivery()!.deliveryId, this.disputeReport).subscribe({
       next: () => {
         this.acting.set(false);
         this.clientAction.set('none');
         this.toast.warning(this.translate.instant('delivery.disputedMsg'));
         this.load();
       },
-      error: err => { this.acting.set(false); this.showError(err); }
+      error: (err) => {
+        this.acting.set(false);
+        this.showError(err);
+      },
     });
   }
 
   private showError(err: any) {
     const code = err?.error?.code ?? 'UNKNOWN';
-    const msg  = this.translate.instant(`deliveryErrors.${code}`);
+    const msg = this.translate.instant(`deliveryErrors.${code}`);
     this.toast.error(msg !== `deliveryErrors.${code}` ? msg : 'An error occurred.');
   }
 }

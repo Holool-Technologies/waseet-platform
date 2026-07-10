@@ -20,7 +20,7 @@ public class DeliveryService : IDeliveryService
     private readonly INotificationService _notifications;
     private readonly IAuditLogService _audit;
     private readonly ILogger<DeliveryService> _logger;
-
+    private readonly IAiSanitizerService _sanitizer;
     public DeliveryService(
         WaseetDbContext db,
         IFileStorageService storage,
@@ -103,7 +103,14 @@ public class DeliveryService : IDeliveryService
         // Count existing deliveries to get revision number
         var deliveryCount = await _db.Deliveries
             .CountAsync(d => d.TaskId == task.TaskId, ct);
-
+        // In SubmitDeliveryAsync — sanitize note:
+        if (!string.IsNullOrWhiteSpace(note))
+        {
+            var noteSanitized = await _sanitizer.SanitizeAsync(note.Trim(), ct);
+            if (noteSanitized.Blocked)
+                throw new InvalidOperationException("DELIVERY_NOTE_BLOCKED");
+            note = noteSanitized.SanitizedContent;
+        }
         var delivery = new Delivery
         {
             TaskId = task.TaskId,
@@ -240,6 +247,12 @@ public class DeliveryService : IDeliveryService
         if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length < 10)
             throw new InvalidOperationException("REASON_TOO_SHORT");
 
+        // In RequestRevisionAsync — sanitize reason:
+        var reasonSanitized = await _sanitizer.SanitizeAsync(reason.Trim(), ct);
+        if (reasonSanitized.Blocked)
+            throw new InvalidOperationException("REVISION_REASON_BLOCKED");
+        reason = reasonSanitized.SanitizedContent;
+
         // Create revision request
         var revision = new RevisionRequest
         {
@@ -322,6 +335,12 @@ public class DeliveryService : IDeliveryService
         delivery.RespondedAt = DateTime.UtcNow;
         delivery.Task.Status = TaskStatus.Disputed;
         delivery.Task.UpdatedAt = DateTime.UtcNow;
+
+        // In OpenDisputeAsync — sanitize report:
+        var reportSanitized = await _sanitizer.SanitizeAsync(report.Trim(), ct);
+        if (reportSanitized.Blocked)
+            throw new InvalidOperationException("DISPUTE_REPORT_BLOCKED");
+        report = reportSanitized.SanitizedContent;
 
         var dispute = new Dispute
         {

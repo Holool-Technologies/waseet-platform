@@ -211,7 +211,10 @@
   "DISPUTE_ALREADY_EXISTS": "A dispute is already open for this delivery.",
   "PAYMENT_RELEASE_FAILED": "Payment release failed. Please contact support.",
   "PAYMENT_REFUND_FAILED": "Payment refund failed. Please contact support.",
-  "DISPUTE_CONCURRENCY_CONFLICT": "Another admin just resolved this dispute. Please refresh."
+  "DISPUTE_CONCURRENCY_CONFLICT": "Another admin just resolved this dispute. Please refresh.",
+  "DELIVERY_NOTE_BLOCKED":    "Delivery note was blocked — it contained personal contact information.",
+  "REVISION_REASON_BLOCKED":  "Revision reason was blocked — it contained personal contact information.",
+  "DISPUTE_REPORT_BLOCKED":   "Dispute report was blocked — it contained personal contact information."
 }
 
 }

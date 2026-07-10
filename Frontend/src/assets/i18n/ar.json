@@ -277,7 +277,10 @@
   "DISPUTE_ALREADY_EXISTS": "يوجد نزاع مفتوح بالفعل لهذا التسليم.",
   "PAYMENT_RELEASE_FAILED": "فشل تحرير الدفع. يرجى التواصل مع الدعم.",
   "PAYMENT_REFUND_FAILED": "فشل استرداد الدفع. يرجى التواصل مع الدعم.",
-  "DISPUTE_CONCURRENCY_CONFLICT": "مشرف آخر حل هذا النزاع للتو. يرجى تحديث الصفحة."
+  "DISPUTE_CONCURRENCY_CONFLICT": "مشرف آخر حل هذا النزاع للتو. يرجى تحديث الصفحة.",
+  "DELIVERY_NOTE_BLOCKED":    "تم حجب ملاحظة التسليم — تحتوي على معلومات تواصل شخصية.",
+  "REVISION_REASON_BLOCKED":  "تم حجب سبب التعديل — يحتوي على معلومات تواصل شخصية.",
+  "DISPUTE_REPORT_BLOCKED":   "تم حجب بلاغ النزاع — يحتوي على معلومات تواصل شخصية."
 }
 
 }

@@ -11,6 +11,7 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { WaseetTask, Proposal, EscrowTransaction } from '../../../../core/models/task.models';
 import { environment } from '../../../../../environments/environment';
 import { DeliveryComponent } from '../../delivery/delivery.component';
+import { HubService } from '../../../../core/services/hub.service';
 
 
 @Component({
@@ -37,7 +38,7 @@ import { DeliveryComponent } from '../../delivery/delivery.component';
             <div class="card p-8">
               <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span [class]="getStatusBadge(task()!.status)">{{ task()!.statusLabel }}</span>
+                  <span [class]="getStatusBadge(taskStatusBadge())">{{ task()!.statusLabel }}</span>
                   <span class="badge-blue">{{ task()!.categoryLabel }}</span>
                 </div>
                 <span class="text-2xl font-bold text-brand-600">\${{ task()!.budgetUSD }}</span>
@@ -312,6 +313,7 @@ export class TaskDetailComponent implements OnInit {
   private escrowService = inject(EscrowService);
   private http        = inject(HttpClient);
   private toast       = inject(ToastService);
+  private hub         = inject(HubService);
   auth                = inject(AuthService);
   private fb          = inject(FormBuilder);
  private translate = inject(TranslateService);
@@ -329,30 +331,23 @@ export class TaskDetailComponent implements OnInit {
     coverLetter: ['', [Validators.required, Validators.minLength(20)]],
     bidAmount:   [null, [Validators.required, Validators.min(1)]]
   });
-
+taskStatusBadge = computed(() => {
+  const s = this.task()?.status;
+  return ['badge-green','badge-blue','badge-amber',
+          'badge-blue','badge-green','badge-red','badge-gray'][s ?? 0]
+         ?? 'badge-gray';
+});
   ngOnInit() {
   const code = this.route.snapshot.paramMap.get('code')!;
-  this.taskService.getByCode(code).subscribe({
-    next: t => {
-      this.task.set(t);
-      this.loading.set(false);
-      this.loadProposals(code);
-      if(this.auth.isFreelancer()) {
-        this.hasAlreadyBid.set(t.hasSubmittedProposal);
-}
-      // Load escrow if client and task owner
-      if (this.auth.isClient()
-          && t.clientUserId === this.auth.currentUser()?.userId
-          && t.status >= 2) {
-        this.escrowService.getByTask(code).subscribe({
-          next: e => this.escrow.set(e),
-          error: () => {}
-        });
-      }
-    },
-    error: () => this.loading.set(false)
+  this.loadTask(code);
+      
+    // Listen for dispute resolution via SignalR notifications
+  this.hub.on('ReceiveNotification', (payload: any) => {
+    if (['ProposalAwarded', 'TaskApproved', 'TaskRejected']
+        .includes(payload.type)) {
+      this.loadTask(code);
+    }
   });
-  
 }
 private readonly staticBase = environment.apiUrl.replace(/\/api$/, '');
 
@@ -363,6 +358,26 @@ resolveUrl(imageUrl: string): string {
   const stripped = imageUrl.replace(/^\/api\/files\//, '');
   const path = stripped.startsWith('/') ? stripped : `/${stripped}`;
   return `${this.staticBase}${path}`;
+}
+
+
+private loadTask(code: string) {
+  this.taskService.getByCode(code).subscribe({
+    next: t => {
+      this.task.set(t);
+      this.loading.set(false);
+      this.loadProposals(code);
+      if (this.isTaskClient()
+          && (t.status >= 2)
+          && t.freelancerUserId) {
+        this.escrowService.getByTask(code).subscribe({
+          next: e => this.escrow.set(e),
+          error: () => {}
+        });
+      }
+    },
+    error: () => this.loading.set(false)
+  });
 }
 private loadProposals(code: string) {
   const userId = this.auth.currentUser()?.userId;
@@ -526,3 +541,7 @@ submitProposal() {
     && this.task()?.freelancerUserId === this.auth.currentUser()?.userId;
   }
 }
+function computed(arg0: () => string) {
+  throw new Error('Function not implemented.');
+}
+
