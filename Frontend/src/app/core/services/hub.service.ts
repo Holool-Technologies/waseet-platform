@@ -6,7 +6,7 @@ import { ToastService } from './toast.service';
 import { LangService } from './lang.service';
 import { environment } from '../../../environments/environment';
 import { TranslateService } from '@ngx-translate/core';
-import { ChatUnreadService } from './chat-unread.service';
+import { ChatService } from './chat.service';
 
 @Injectable({ providedIn: 'root' })
 export class HubService {
@@ -14,7 +14,7 @@ export class HubService {
   private notifs = inject(NotificationService);
   private toast  = inject(ToastService);
   private lang   = inject(LangService);
-  private chatUnread = inject(ChatUnreadService);
+  private chat = inject(ChatService);
   private hub: signalR.HubConnection | null = null;
   private handlers = new Map<string, Set<(data: any) => void>>();
   private connecting = false;
@@ -69,7 +69,7 @@ export class HubService {
     this.emit('ReceiveMessage', msg);
       // Increment unread if not currently viewing that conversation
       if (!msg.blocked) {
-        this.chatUnread.increment();
+        this.chat.unreadIncrement();
       }
     });
     this.hub.on('UserTyping',     (id: any)  => this.emit('UserTyping', id));

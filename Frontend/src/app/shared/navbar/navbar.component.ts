@@ -7,7 +7,7 @@ import { LangService } from '../../core/services/lang.service';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { HubService } from '../../core/services/hub.service';
-import { ChatUnreadService } from '../../core/services/chat-unread.service';
+import { ChatService } from '../../core/services/chat.service';
 
 @Component({
   selector: 'app-navbar',
@@ -70,11 +70,11 @@ import { ChatUnreadService } from '../../core/services/chat-unread.service';
                     d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2
                       2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
                 </svg>
-                @if (chatUnread.unreadCount() > 0) {
+                @if (chat.unreadCount() > 0) {
                   <span class="absolute -top-0.5 -end-0.5 w-4 h-4 bg-brand-600
                               text-white text-[9px] font-bold rounded-full
                               flex items-center justify-center">
-                    {{ chatUnread.unreadCount() > 9 ? '9+' : chatUnread.unreadCount() }}
+                    {{ chat.unreadCount() > 9 ? '9+' : chat.unreadCount() }}
                   </span>
                 }
               </a>
@@ -238,7 +238,7 @@ export class NavbarComponent implements OnInit {
   auth = inject(AuthService);
   notifService = inject(NotificationService);
   private hub = inject(HubService);
-  chatUnread = inject(ChatUnreadService);
+  chat = inject(ChatService);
   isAdmin = computed(() => this.auth.currentUser()?.role === 99);
   router = inject(Router);
   notifOpen = signal(false);

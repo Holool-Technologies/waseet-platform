@@ -6,7 +6,7 @@ import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
 import { ChatViewComponent } from '../chat-view/chat-view.component';
 import { environment } from '../../../../environments/environment';
-import { ChatUnreadService } from '../../../core/services/chat-unread.service';
+import { ChatService } from '../../../core/services/chat.service';
 
 interface Conversation {
   conversationId: string;
@@ -189,7 +189,7 @@ export class ChatInboxComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   auth           = inject(AuthService);
-  chatUnread = inject(ChatUnreadService);
+  chat = inject(ChatService);
 
   conversations  = signal<Conversation[]>([]);
   selected       = signal<Conversation | null>(null);
@@ -265,7 +265,7 @@ selectConversation(conv: Conversation) {
       ? { ...c, unreadCount: 0 } : c));
 
   if (conv.unreadCount > 0) {
-    this.chatUnread.resetForConversation(conv.unreadCount);
+    this.chat.resetForConversation(conv.unreadCount);
     this.http.post(
       `${environment.apiUrl}/chat/conversation/${conv.conversationId}/read`, {}
     ).subscribe();

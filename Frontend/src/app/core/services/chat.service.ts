@@ -20,6 +20,7 @@ export class ChatService {
   isConnected = signal(false);
   isTyping = signal(false);
   connectionError = signal('');
+  unreadCount = signal(0);
 
   private hub: signalR.HubConnection | null = null;
   private typingTimer: any;
@@ -138,4 +139,17 @@ export class ChatService {
     error: (err) => console.warn('Failed to mark conversation read:', err)
   });
 }
+
+// unread chat messages
+loadUnRead() {
+    this.http.get<{ unreadCount: number }>(
+      `${environment.apiUrl}/chat/unread-count`
+    ).subscribe({ next: r => this.unreadCount.set(r.unreadCount) });
+  }
+
+  unreadIncrement() { this.unreadCount.update(c => c + 1); }
+
+  resetForConversation(prevCount: number) {
+    this.unreadCount.update(c => Math.max(0, c - prevCount));
+  }
 }

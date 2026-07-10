@@ -625,26 +625,26 @@ next: (proposals: Proposal[]) => {
         },
       });
   }
-chatFromModal() {
-  const v = this.viewingProfile();
-  if (!v) return;
-  this.viewingProfile.set(null);
-  this.http.post<{ conversationId: string; taskCode: string; otherPartyAlias: string }>(`${environment.apiUrl}/chat/conversation/open`, {
-    taskId: this.task()!.taskId,
-    freelancerUserId: v.freelancerUserId
-  }).subscribe({
-    next: (res) => {
-      this.router.navigate(['/chat/inbox'], {
-        queryParams: {
-          conversationId: res.conversationId,
-          taskId:     this.task()!.taskId,
-          freelancer: v.freelancerUserId,
-          alias: res.otherPartyAlias
-        }
-      });
-    }
-  });
-}
+// chatFromModal() {
+//   const v = this.viewingProfile();
+//   if (!v) return;
+//   this.viewingProfile.set(null);
+//   this.http.post<{ conversationId: string; taskCode: string; otherPartyAlias: string }>(`${environment.apiUrl}/chat/conversation/open`, {
+//     taskId: this.task()!.taskId,
+//     freelancerUserId: v.freelancerUserId
+//   }).subscribe({
+//     next: (res) => {
+//       this.router.navigate(['/chat/inbox'], {
+//         queryParams: {
+//           conversationId: res.conversationId,
+//           taskId:     this.task()!.taskId,
+//           freelancer: v.freelancerUserId,
+//           alias: res.otherPartyAlias
+//         }
+//       });
+//     }
+//   });
+// }
 
 getProposalStatusBadge(status: number): string {
   return ['badge-amber', 'badge-green', 'badge-red'][status] ?? 'badge-gray';
