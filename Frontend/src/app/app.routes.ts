@@ -68,7 +68,6 @@ export const routes: Routes = [
     path: 'admin',
     loadChildren: () => import('./features/admin/admin.routes').then((m) => m.ADMIN_ROUTES),
   },
-  { path: '**', redirectTo: 'browse' },
   {
     path: 'my-tasks',
     loadComponent: () =>
@@ -87,4 +86,5 @@ export const routes: Routes = [
     .then(m => m.ClientReviewComponent),
   canActivate: [authGuard]
 },
+  { path: '**', redirectTo: 'browse' }
 ];

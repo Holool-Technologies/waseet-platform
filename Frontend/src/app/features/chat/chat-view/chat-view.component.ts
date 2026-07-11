@@ -65,7 +65,7 @@ export interface ChatMsg {
                   {{ mine ? 'You' : msg.senderRole }}
                 </p>
                 <div [class]="getBubbleClass(msg, mine)">
-                 @else {
+                 
                     @if (msg.piiDetected) {
                       <p class="text-[10px] opacity-60 mb-1 flex items-center gap-1">
                         <span>🔒</span> Personal info removed
@@ -75,7 +75,7 @@ export interface ChatMsg {
                     <p class="text-sm leading-relaxed break-words whitespace-pre-wrap">
                       {{ msg.sanitizedContent }}
                     </p>
-                  }
+                  
                   <p [class]="mine
                     ? 'text-[10px] opacity-60 text-end mt-1'
                     : 'text-[10px] opacity-60 mt-1'">

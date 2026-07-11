@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -10,14 +10,13 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { WaseetTask, Proposal, EscrowTransaction } from '../../../../core/models/task.models';
 import { environment } from '../../../../../environments/environment';
-import { DeliveryComponent } from '../../delivery/delivery.component';
 import { HubService } from '../../../../core/services/hub.service';
 import { ConfirmService } from '../../../../core/services/confirm.service';
 
 @Component({
   selector: 'app-task-detail',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, TranslateModule, DeliveryComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, TranslateModule],
   template: `
     <div class="page">
       <div class="max-w-4xl mx-auto">
@@ -35,7 +34,7 @@ import { ConfirmService } from '../../../../core/services/confirm.service';
             <div class="card p-8">
               <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span [class]="getStatusBadge(taskStatusBadge())">{{ task()!.statusLabel }}</span>
+                  <span [class]="">{{ task()!.statusLabel }}</span>
                   <span class="badge-blue">{{ task()!.categoryLabel }}</span>
                 </div>
                 <span class="text-2xl font-bold text-brand-600">\${{ task()!.budgetUSD }}</span>
@@ -208,7 +207,7 @@ import { ConfirmService } from '../../../../core/services/confirm.service';
                             <!-- Award button -->
                             @if (task()!.status === 0 || task()!.status === 1) {
                               <button
-                                (click)="award(p)"
+                                (click)="award(p,i)"
                                 [disabled]="awarding() === p.proposalId"
                                 class="btn-primary btn-sm"
                               >
@@ -747,12 +746,6 @@ async award(proposal: Proposal, index: number) {
     });
   }
 
-  getStatusBadge(s: number) {
-    return (
-      ['badge-green', 'badge-blue', 'badge-amber', 'badge-gray', 'badge-red'][s] ?? 'badge-gray'
-    );
-  }
-
   getEscrowBadge(s: number) {
     return ['badge-amber', 'badge-green', 'badge-red', 'badge-gray'][s] ?? 'badge-gray';
   }
@@ -767,6 +760,4 @@ async award(proposal: Proposal, index: number) {
     );
   }
 }
-function computed(arg0: () => string) {
-  throw new Error('Function not implemented.');
-}
+
