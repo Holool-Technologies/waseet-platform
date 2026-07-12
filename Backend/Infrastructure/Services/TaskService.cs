@@ -283,7 +283,7 @@ public class TaskService : ITaskService
             $"Congratulations! You have been awarded the task \"{task.Title}\". You can now start working.",
             $"تهانينا! لقد تم اختيارك للمهمة \"{task.Title}\". يمكنك البدء في العمل الآن.",
             task.TaskId.ToString(),
-            $"/chat/{task.TaskId}",
+            $"/my-workspace/{task.PublicTaskCode}",
             ct);
 
         return MapTask(task, task.Proposals.Count, true);

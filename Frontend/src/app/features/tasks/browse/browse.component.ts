@@ -14,7 +14,7 @@ const CATEGORIES = [
   { value: 3,     label: 'Writing & Translation' },
   { value: 4,     label: 'Marketing & Sales' },
   { value: 5,     label: 'Video & Animation' },
-  { value: 6,     label: 'Music & Audio' },
+  { value: 6,     label: 'Audio' },
   { value: 7,     label: 'Data Science' },
   { value: 8,     label: 'Business & Consulting' },
   { value: 9,     label: 'Admin & Support' },
@@ -85,18 +85,6 @@ const CATEGORIES = [
           }
         </div>
 
-        <!-- REQ 2: Category pills -->
-        <div class="flex flex-wrap gap-2 mt-3">
-          @for (cat of categories; track cat.value) {
-            <button
-              (click)="selectedCategory = cat.value; onFilter()"
-              [class]="selectedCategory === cat.value
-                ? 'bg-primary-500 text-white text-xs px-3 py-1 rounded-full font-medium transition-all'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs px-3 py-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-all'">
-              {{ cat.label }}
-            </button>
-          }
-        </div>
       </div>
 
       <!-- Results count -->
