@@ -9,6 +9,7 @@ using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Task = System.Threading.Tasks.Task;
 using TaskStatus=Domain.Enums.TaskStatus;
 namespace Infrastructure.Services;
@@ -28,7 +29,9 @@ public class DeliveryService : IDeliveryService
         IPaymentGatewayService payments,
         INotificationService notifications,
         IAuditLogService audit,
-        ILogger<DeliveryService> logger)
+        ILogger<DeliveryService> logger,
+        IAiSanitizerService sanitizer
+        )
     {
         _db = db;
         _storage = storage;
@@ -36,6 +39,7 @@ public class DeliveryService : IDeliveryService
         _notifications = notifications;
         _audit = audit;
         _logger = logger;
+        _sanitizer = sanitizer;
     }
 
     public async Task<IEnumerable<DeliveryResponse>> GetDeliveryHistoryAsync(
@@ -60,9 +64,10 @@ public class DeliveryService : IDeliveryService
             .Where(d => d.TaskId == task.TaskId)
             .OrderByDescending(d => d.SubmittedAt)
             .ToListAsync(ct);
-
+        var totalRevisions = await _db.Deliveries
+    .CountAsync(x => x.TaskId == task.TaskId && x.RevisionNumber > 0, ct);
         return await Task.WhenAll(
-            deliveries.Select(d => MapDeliveryAsync(d, settings.MaxRevisions, ct)));
+            deliveries.Select(d => MapDeliveryAsync(d, settings.MaxRevisions, totalRevisions, ct)));
     }
 
     public async Task<IEnumerable<RevisionRequestResponse>> GetRevisionRequestsAsync(
@@ -124,8 +129,6 @@ public class DeliveryService : IDeliveryService
     string note,
     string? videoUrl,
     List<DeliveryLink> links,
-    List<DeliveryChecklistItem> checklist,
-    int progressPercent,
     List<(Stream Stream, string FileName, string ContentType)> files,
     CancellationToken ct = default)
     {
@@ -178,8 +181,6 @@ public class DeliveryService : IDeliveryService
             Note = note.Trim(),
             VideoUrl = videoUrl?.Trim(),
             Links = JsonSerializer.Serialize(links),
-            Checklist = JsonSerializer.Serialize(checklist),
-            ProgressPercent = Math.Clamp(progressPercent, 0, 100),
             ReviewDeadline = DateTime.UtcNow.AddDays(settings.ReviewWindowDays)
         };
 
@@ -228,10 +229,11 @@ public class DeliveryService : IDeliveryService
             $"قام المستقل بتسليم العمل \"{task.Title}\". " +
             $"لديك {settings.ReviewWindowDays} أيام للمراجعة والموافقة أو طلب تعديلات أو فتح نزاع.",
             delivery.DeliveryId.ToString(),
-            $"/tasks/{task.PublicTaskCode}/delivery",
+            $"/review/{task.PublicTaskCode}",
             ct);
-
-        return await MapDeliveryAsync(delivery, settings.MaxRevisions, ct);
+        var totalRevisions = await _db.Deliveries
+    .CountAsync(x => x.TaskId == task.TaskId && x.RevisionNumber > 0, ct);
+        return await MapDeliveryAsync(delivery, settings.MaxRevisions,totalRevisions, ct);
     }
 
     // ── Get active delivery ───────────────────────────────────────────────────
@@ -255,7 +257,9 @@ public class DeliveryService : IDeliveryService
         if (!isParty) throw new UnauthorizedAccessException("Not authorized.");
 
         var settings = await GetSettingsEntityAsync(ct);
-        return await MapDeliveryAsync(delivery, settings.MaxRevisions, ct);
+        var totalRevisions = await _db.Deliveries
+    .CountAsync(x => x.TaskId == delivery.Task.TaskId && x.RevisionNumber > 0, ct);
+        return await MapDeliveryAsync(delivery, settings.MaxRevisions,totalRevisions, ct);
     }
 
     // ── Client: accept delivery ───────────────────────────────────────────────
@@ -280,7 +284,9 @@ public class DeliveryService : IDeliveryService
             delivery, DeliveryStatus.Accepted, clientUserId, "Client", ct);
 
         var settings = await GetSettingsEntityAsync(ct);
-        return await MapDeliveryAsync(delivery, settings.MaxRevisions, ct);
+        var totalRevisions = await _db.Deliveries
+    .CountAsync(x => x.TaskId == delivery.Task.TaskId && x.RevisionNumber > 0, ct);
+        return await MapDeliveryAsync(delivery, settings.MaxRevisions,totalRevisions, ct);
     }
 
     // ── Client: request revision ──────────────────────────────────────────────
@@ -354,7 +360,7 @@ public class DeliveryService : IDeliveryService
             $"طلب العميل تعديلات على مهمة \"{delivery.Task.Title}\". " +
             $"السبب: {reason.Trim()[..Math.Min(100, reason.Trim().Length)]}",
             revision.RevisionId.ToString(),
-            $"/tasks/{delivery.Task.PublicTaskCode}/delivery",
+            $"/my-workspace/{delivery.Task.PublicTaskCode}",
             ct);
 
         return new RevisionRequestResponse(
@@ -432,7 +438,7 @@ public class DeliveryService : IDeliveryService
             $"فتح العميل نزاعاً على مهمة \"{delivery.Task.Title}\". " +
             "سيقوم مشرف بمراجعة الحالة. الضمان مجمّد.",
             dispute.DisputeId.ToString(),
-            $"/tasks/{delivery.Task.PublicTaskCode}/delivery",
+            $"/my-workspace/{delivery.Task.PublicTaskCode}",
             ct);
 
         return MapDispute(dispute);
@@ -730,7 +736,7 @@ public class DeliveryService : IDeliveryService
                 $"تم قبول تسليم مهمة \"{delivery.Task.Title}\" تلقائياً بعد 7 أيام. " +
                 "تم تحرير الدفع للمستقل.",
                 delivery.DeliveryId.ToString(),
-                $"/tasks/{delivery.Task.PublicTaskCode}/delivery",
+                $"/dashboard",
                 ct);
         }
     }
@@ -764,9 +770,10 @@ public class DeliveryService : IDeliveryService
             .Where(d => d.TaskId == dispute.TaskId)
             .OrderBy(d => d.SubmittedAt)
             .ToListAsync(ct);
-
+        var totalRevisions = await _db.Deliveries
+    .CountAsync(x => x.TaskId == dispute.TaskId && x.RevisionNumber > 0, ct);
         var deliveryResponses = await Task.WhenAll(
-            deliveries.Select(d => MapDeliveryAsync(d, settings.MaxRevisions, ct)));
+            deliveries.Select(d => MapDeliveryAsync(d, settings.MaxRevisions, totalRevisions, ct)));
 
         // All revisions
         var revisions = await _db.RevisionRequests
@@ -813,16 +820,12 @@ public class DeliveryService : IDeliveryService
     }
 
     private async Task<DeliveryResponse> MapDeliveryAsync(
-    Delivery d, int maxRevisions, CancellationToken ct)
+    Delivery d, int maxRevisions, int totalRevisions, CancellationToken ct)
     {
-        var totalRevisions = await _db.Deliveries
-            .CountAsync(x => x.TaskId == d.TaskId && x.RevisionNumber > 0, ct);
 
         var links = JsonSerializer.Deserialize<List<DeliveryLink>>(d.Links)
                         ?? [];
-        var checklist = JsonSerializer.Deserialize<List<DeliveryChecklistItem>>(d.Checklist)
-                        ?? [];
-
+        
         return new DeliveryResponse(
             d.DeliveryId, d.TaskId,
             d.Task?.PublicTaskCode ?? string.Empty,
@@ -830,8 +833,6 @@ public class DeliveryService : IDeliveryService
             d.Note,
             d.VideoUrl,
             links,
-            checklist,
-            d.ProgressPercent,
             d.Status.ToString(),
             d.SubmittedAt,
             d.ReviewDeadline,

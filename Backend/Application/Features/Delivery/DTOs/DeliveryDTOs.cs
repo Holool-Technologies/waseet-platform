@@ -19,8 +19,6 @@ public record DeliveryResponse(
     string Note,
     string? VideoUrl,
     IEnumerable<DeliveryLink> Links,
-    IEnumerable<DeliveryChecklistItem> Checklist,
-    int ProgressPercent,
     string Status,
     DateTime SubmittedAt,
     DateTime ReviewDeadline,

@@ -6,7 +6,7 @@ public interface IDeliveryService
 {
     Task<DeliveryResponse> SubmitDeliveryAsync(
         Guid freelancerUserId, string taskCode, string note, 
-        string? videoUrl,List<DeliveryLink> links,List<DeliveryChecklistItem> checklist,int progressPercent,
+        string? videoUrl,List<DeliveryLink> links,
         List<(Stream Stream, string FileName, string ContentType)> files,
         CancellationToken ct = default);
 

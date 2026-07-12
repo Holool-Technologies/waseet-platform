@@ -402,8 +402,6 @@ private handleError = (code: string) => {
   }
 
   getBubbleClass(msg: ChatMsg, mine: boolean): string {
-    if (msg.blocked)
-      return 'px-4 py-2.5 rounded-2xl text-sm bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-400 rounded-bl-sm';
     if (mine)
       return 'px-4 py-2.5 rounded-2xl text-sm bg-brand-600 text-white rounded-br-sm shadow-sm';
     return 'px-4 py-2.5 rounded-2xl text-sm bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 rounded-bl-sm shadow-sm';

@@ -86,8 +86,8 @@ export class NotificationsComponent implements OnInit {
 
   onNotifClick(n: AppNotification) {
     if (!n.isRead) this.notifService.markRead(n.notificationId);
-
     const url = this.resolveNotifUrl(n);
+    alert(url);
     if (url) this.router.navigateByUrl(url);
   }
 

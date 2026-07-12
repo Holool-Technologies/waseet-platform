@@ -86,22 +86,6 @@ type ClientAction = 'none' | 'revision' | 'dispute';
                       Submitted {{ delivery()!.submittedAt | date:'d MMM yyyy, HH:mm' }}
                     </p>
                   </div>
-
-                  <!-- Progress ring/bar -->
-                  @if (delivery()!.progressPercent < 100) {
-                    <div class="flex items-center gap-2">
-                      <div class="h-2 w-24 bg-neutral-100 dark:bg-neutral-800 rounded-full">
-                        <div class="h-2 bg-brand-500 rounded-full"
-                          [style.width.%]="delivery()!.progressPercent">
-                        </div>
-                      </div>
-                      <span class="text-xs text-neutral-500">
-                        {{ delivery()!.progressPercent }}% complete
-                      </span>
-                    </div>
-                  } @else {
-                    <span class="badge-green">100% complete</span>
-                  }
                 </div>
 
                 <!-- Delivery note -->
@@ -111,36 +95,6 @@ type ClientAction = 'none' | 'revision' | 'dispute';
                               leading-relaxed whitespace-pre-wrap">
                       {{ delivery()!.note }}
                     </p>
-                  </div>
-                }
-
-                <!-- Checklist -->
-                @if (delivery()!.checklist?.length) {
-                  <div class="mb-4">
-                    <p class="text-xs font-semibold text-neutral-500 uppercase
-                               tracking-wider mb-2">What was completed</p>
-                    <div class="space-y-1.5">
-                      @for (item of delivery()!.checklist; track item.item) {
-                        <div class="flex items-center gap-2.5">
-                          <div [class]="item.done
-                            ? 'w-4 h-4 rounded bg-success-500 flex items-center justify-center flex-shrink-0'
-                            : 'w-4 h-4 rounded border border-neutral-300 dark:border-neutral-600 flex-shrink-0'">
-                            @if (item.done) {
-                              <svg class="w-2.5 h-2.5 text-white" fill="none"
-                                stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                  stroke-width="3" d="M5 13l4 4L19 7"/>
-                              </svg>
-                            }
-                          </div>
-                          <span [class]="item.done
-                            ? 'text-sm text-neutral-700 dark:text-neutral-300'
-                            : 'text-sm text-neutral-400 line-through'">
-                            {{ item.item }}
-                          </span>
-                        </div>
-                      }
-                    </div>
                   </div>
                 }
 
@@ -501,7 +455,7 @@ export class ClientReviewComponent implements OnInit {
   }
 
   private loadTask(code: string) {
-    this.http.get<WaseetTask>(`${environment.apiUrl}/tasks/code/${code}`)
+    this.http.get<WaseetTask>(`${environment.apiUrl}/tasks/${code}`)
       .subscribe({ next: t => this.task.set(t) });
   }
 

@@ -48,8 +48,8 @@ public static class DeliveryEndpoints
             try
             {
                 var r = await svc.SubmitDeliveryAsync(
-                    uid, code, note, videoUrl, links, checklist,
-                    progressPercent, files, ct);
+                    uid, code, note, videoUrl, links
+                   , files, ct);
                 return Results.Ok(r);
             }
             catch (UnauthorizedAccessException) { return Results.Forbid(); }

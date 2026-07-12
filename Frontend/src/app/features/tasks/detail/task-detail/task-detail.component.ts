@@ -34,7 +34,7 @@ import { ConfirmService } from '../../../../core/services/confirm.service';
             <div class="card p-8">
               <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span [class]="">{{ task()!.statusLabel }}</span>
+                  <span [class]="taskStatusBadge()">{{ task()!.statusLabel }}</span>
                   <span class="badge-blue">{{ task()!.categoryLabel }}</span>
                 </div>
                 <span class="text-2xl font-bold text-brand-600">\${{ task()!.budgetUSD }}</span>
@@ -58,35 +58,7 @@ import { ConfirmService } from '../../../../core/services/confirm.service';
               </div>
             </div>
 
-            <!-- Escrow card -->
-            @if (escrow()) {
-              <div class="card p-6">
-                <h2 class="text-base font-semibold text-neutral-900 dark:text-white mb-4">
-                  Escrow Status
-                </h2>
-                <div class="flex items-center justify-between flex-wrap gap-3">
-                  <div>
-                    <p class="text-2xl font-bold text-brand-600">
-                      \${{ escrow()!.amountUSD | number: '1.2-2' }}
-                    </p>
-                    <p class="text-xs text-neutral-400 mt-0.5">
-                      Held since {{ escrow()!.heldAt | date: 'd MMM yyyy' }}
-                    </p>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <span [class]="getEscrowBadge(escrow()!.status)">{{
-                      escrow()!.statusLabel
-                    }}</span>
-                    @if (auth.isClient() && escrow()!.status === 0) {
-                      <button (click)="releaseEscrow()" class="btn-primary btn-sm">
-                        Release Payment
-                      </button>
-                      <button (click)="disputeEscrow()" class="btn-danger btn-sm">Dispute</button>
-                    }
-                  </div>
-                </div>
-              </div>
-            }
+           
             <!-- Delivery section — show for Active, Delivered, Completed, Disputed tasks -->
             <!-- ADD this instead: -->
             @if ([2, 3, 4, 5].includes(task()!.status)) {
@@ -482,7 +454,6 @@ export class TaskDetailComponent implements OnInit {
         'badge-blue',
         'badge-amber',
         'badge-blue',
-        'badge-green',
         'badge-red',
         'badge-gray',
       ][s ?? 0] ?? 'badge-gray'

@@ -11,11 +11,6 @@ export interface DeliveryLink {
   url:   string;
 }
 
-export interface DeliveryChecklistItem {
-  item: string;
-  done: boolean;
-}
-
 export interface Delivery {
   deliveryId:      string;
   taskId:          string;
@@ -24,8 +19,6 @@ export interface Delivery {
   note:            string;
   videoUrl:        string | null;
   links:           DeliveryLink[];
-  checklist:       DeliveryChecklistItem[];
-  progressPercent: number;
   status:          DeliveryStatus;
   submittedAt:     string;
   reviewDeadline:  string;
