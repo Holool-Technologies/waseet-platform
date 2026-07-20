@@ -7,7 +7,9 @@ import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { environment } from '../../../environments/environment';
-
+import { SkillLevelComponent } from '../../shared/skill-level/skill-level.component';
+import { BadgesComponent } from '../../shared/badges/badges.component';
+import { PortfolioStatsComponent } from '../../shared/portfolio-stats/portfolio-stats.component';
 interface Profile {
   userId: string; title: string; bio: string;
   skills: string[]; balance: number; isPublished: boolean;
@@ -46,7 +48,47 @@ interface PortfolioItem {
           <p class="text-4xl font-bold">\${{ profile()?.balance | number:'1.2-2' }}</p>
           <p class="text-xs text-brand-300 mt-2">Earnings from completed tasks</p>
         </div>
+        <!-- Skill level with progress -->
+@if (profile()?.stats?.skillLevel) {
+  <div class="card p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-base font-semibold text-neutral-900 dark:text-white">
+        Skill Level
+      </h2>
+      @if (profile()!.stats.skillLevel.level < 5) {
+        <span class="text-xs text-neutral-400">
+          {{ profile()!.stats.tasksCompleted }}
+          / {{ profile()!.stats.skillLevel.nextLevelAt }}
+          tasks to next level
+        </span>
+      }
+    </div>
+    <app-skill-level
+      [info]="profile()!.stats.skillLevel"
+      [showProgress]="true">
+    </app-skill-level>
+  </div>
+}
 
+<!-- Portfolio stats -->
+@if (profile()?.stats) {
+  <div class="card p-6">
+    <h2 class="text-base font-semibold text-neutral-900 dark:text-white mb-4">
+      Your Stats
+    </h2>
+    <app-portfolio-stats [stats]="profile()!.stats"></app-portfolio-stats>
+  </div>
+}
+
+<!-- Badges -->
+@if (profile()?.stats?.badges?.length) {
+  <div class="card p-6">
+    <h2 class="text-base font-semibold text-neutral-900 dark:text-white mb-4">
+      Badges
+    </h2>
+    <app-badges [badges]="profile()!.stats.badges"></app-badges>
+  </div>
+}
         <!-- Bio section -->
         <div class="card p-6">
           <div class="flex items-center justify-between mb-6">

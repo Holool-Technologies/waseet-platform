@@ -60,3 +60,12 @@ export interface EscrowTransaction {
   heldAt: string;
   releasedAt?: string;
 }
+// In task.models.ts
+export interface ProposalFreelancerPreview {
+  skillLevel?: {
+    emoji: string;
+    label: string;
+    color: string;
+  };
+  badges?: Array<{ emoji: string; label: string }>;
+}

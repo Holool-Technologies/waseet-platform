@@ -4,15 +4,10 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-
-interface PublicProfile {
-  userId: string;
-  title: string;
-  bio: string;
-  skills: string[];
-  isPublished: boolean;
-  portfolio: PublicPortfolioItem[];
-}
+import { SkillLevelComponent } from '../../shared/skill-level/skill-level.component';
+import { BadgesComponent } from '../../shared/badges/badges.component';
+import { PortfolioStatsComponent } from '../../shared/portfolio-stats/portfolio-stats.component';
+import { PublicProfile } from '../../core/models/profile.models';
 
 interface PublicPortfolioItem {
   itemId: string;
@@ -25,7 +20,8 @@ interface PublicPortfolioItem {
 @Component({
   selector: 'app-public-profile',
   standalone: true,
-  imports: [CommonModule, RouterLink, TranslateModule],
+  imports: [CommonModule, RouterLink, TranslateModule,
+          SkillLevelComponent, BadgesComponent, PortfolioStatsComponent],
   template: `
     <div class="page">
       <div class="max-w-4xl mx-auto">
@@ -87,7 +83,15 @@ interface PublicPortfolioItem {
                   } @else {
                     <p class="text-sm text-neutral-400 italic">No bio provided.</p>
                   }
-
+<!-- Skill level -->
+@if (profile()!.stats?.skillLevel) {
+  <div class="mt-3">
+    <app-skill-level
+      [info]="profile()!.stats.skillLevel"
+      [showProgress]="false">
+    </app-skill-level>
+  </div>
+}
                   @if (profile()!.skills?.length) {
                     <div class="flex flex-wrap gap-2 mt-4">
                       @for (skill of profile()!.skills; track skill) {
@@ -95,6 +99,25 @@ interface PublicPortfolioItem {
                       }
                     </div>
                   }
+                    <!-- After skills, add stats: -->
+@if (profile()!.stats) {
+  <div class="mt-6 pt-5 border-t border-neutral-100 dark:border-neutral-800">
+    <p class="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
+      Platform stats
+    </p>
+    <app-portfolio-stats [stats]="profile()!.stats"></app-portfolio-stats>
+  </div>
+}
+
+<!-- Badges section (after portfolio): -->
+@if (profile()!.stats?.badges?.length) {
+  <div class="card p-6">
+    <h2 class="text-lg font-semibold text-neutral-900 dark:text-white mb-4">
+      Badges
+    </h2>
+     <app-badges [badges]="profile()!.stats.badges"></app-badges>
+  </div>
+}
                 </div>
               </div>
 

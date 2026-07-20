@@ -145,6 +145,14 @@ import { ConfirmService } from '../../../../core/services/confirm.service';
                           >
                             Bidder-{{ i + 1 }}
                           </button>
+                          <!-- After: <button (click)="viewBidderProfile(p, i)"> Bidder-{{ i + 1 }} </button> -->
+                          <!-- The anonymous profile modal already shows the full profile with stats -->
+                          <!-- On the proposal card, just show the skill level emoji as a hint -->
+                        @if (p.freelancerSkillEmoji) {
+                          <span class="text-base" [title]="p.freelancerSkillLabel">
+                          {{ p.freelancerSkillEmoji }}
+                          </span> 
+                        }
                           <span class="text-xs text-neutral-400">
                             · {{ p.submittedAt | date: 'd MMM' }}
                           </span>
