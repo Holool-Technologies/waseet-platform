@@ -61,3 +61,33 @@ public enum DisputeResolution
     FavorFreelancer = 0,  // release escrow to freelancer
     FavorClient = 1   // refund escrow to client
 }
+
+public enum SkillLevel
+{
+    Newcomer = 0,  // 0 completed
+    Rising = 1,  // 3+ completed, >70% success
+    Professional = 2,  // 10+ completed, >80% success
+    Expert = 3,  // 30+ completed, >85% success
+    Elite = 4,  // 75+ completed, >90% success
+    Legend = 5   // 150+ completed, >95% success
+}
+
+public enum BadgeType
+{
+    // Freelancer badges
+    FastDelivery = 1,   // delivered 2+ days before deadline
+    HundredJobs = 2,   // 100 completed tasks
+    ClientFavorite = 3,   // 5+ repeat clients
+    ThirtyDaysOnTime = 4,   // 30 consecutive on-time deliveries
+    ConsistentPerformer = 5,   // 10+ tasks, 0 disputes
+    TrustedProfessional = 6,   // 50+ tasks, >95% success
+    HundredPercentSuccess = 7,   // 20+ tasks, 100% success rate
+
+    // Client badges
+    GreatClient = 101, // 10+ completed tasks, <5% dispute rate
+    FastPayer = 102, // avg release < 2 days
+    ClearRequirements = 103, // freelancers rate task clarity > 4.5 avg
+    GenerousTipper = 104, // approved extra payments
+    Responsive = 105, // replies to chat within 1 hour avg
+    FairDisputeHistory = 106  // opened disputes but 0 wins (fair)
+}

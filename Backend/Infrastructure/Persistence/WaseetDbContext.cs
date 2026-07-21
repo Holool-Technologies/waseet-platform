@@ -1,5 +1,6 @@
 ﻿using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Waseet.Domain.Entities;
 using Task=Domain.Entities.Task;
 
 namespace Infrastructure.Persistence;
@@ -25,6 +26,9 @@ public class WaseetDbContext : DbContext
     public DbSet<Dispute> Disputes => Set<Dispute>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<DeliverySettings> DeliverySettings => Set<DeliverySettings>();
+    public DbSet<FreelancerStats> FreelancerStats => Set<FreelancerStats>();
+    public DbSet<FreelancerBadge> FreelancerBadges => Set<FreelancerBadge>();
+    public DbSet<ClientStats> ClientStats => Set<ClientStats>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

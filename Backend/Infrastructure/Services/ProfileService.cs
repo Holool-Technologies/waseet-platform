@@ -1,12 +1,14 @@
 ﻿using Application.Features.Notifications.Interfaces;
 using Application.Features.Profile.DTOs;
+using Domain.Entities;
+using Domain.Enums;
 using Domain.Interfaces;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
-using Domain.Entities;
-using Domain.Enums;
+using Waseet.Domain.Entities;
+using Waseet.Domain.Services;
 using Task = System.Threading.Tasks.Task;
 
 namespace Infrastructure.Services;
@@ -50,7 +52,7 @@ public class ProfileService
         return MapProfile(profile, includeAll: true);
     }
 
-    public async Task<FreelancerProfileResponse> GetPublicAsync(
+    public async Task<PublicProfileResponse> GetPublicAsync(
         Guid userId, CancellationToken ct = default)
     {
         var profile = await _db.FreelancerProfiles
@@ -60,7 +62,101 @@ public class ProfileService
             .FirstOrDefaultAsync(p => p.UserId == userId, ct)
             ?? throw new KeyNotFoundException("Profile not found.");
 
-        return MapProfile(profile, includeAll: false);
+        // Load stats
+        var stats = await _db.FreelancerStats
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.UserId == userId, ct);
+
+        // Load badges
+        var badges = await _db.FreelancerBadges
+            .AsNoTracking()
+            .Where(b => b.UserId == userId)
+            .ToListAsync(ct);
+
+        var skills = string.IsNullOrWhiteSpace(profile.Skills)
+            ? Array.Empty<string>()
+            : System.Text.Json.JsonSerializer
+                .Deserialize<string[]>(profile.Skills) ?? [];
+
+        return new PublicProfileResponse(
+            profile.UserId,
+            profile.Title,
+            profile.Bio,
+            skills,
+            profile.IsPublished,
+            MapStats(stats, badges),
+            profile.PortfolioItems.Select(MapPortfolioItem)
+        );
+    }
+
+    private static FreelancerStatsResponse MapStats(
+        FreelancerStats? stats,
+        List<FreelancerBadge> badges)
+    {
+        if (stats is null)
+        {
+            var newcomerInfo = SkillLevelCalculator.GetInfo(SkillLevel.Newcomer);
+            return new FreelancerStatsResponse(
+                0, 0, 0, 0, "$0",
+                0, 0,
+                new SkillLevelInfo("Newcomer",
+                    newcomerInfo.Label, newcomerInfo.LabelAr,
+                    newcomerInfo.Emoji, newcomerInfo.Color,
+                    0, 3, 0),
+                []);
+        }
+
+        var levelInfo = SkillLevelCalculator.GetInfo(stats.SkillLevel);
+        var nextLevel = (SkillLevel)Math.Min((int)stats.SkillLevel + 1, 5);
+        var nextInfo = SkillLevelCalculator.GetInfo(nextLevel);
+
+        // Progress toward next level (based on tasks completed)
+        var currentMin = levelInfo.MinCompleted;
+        var nextMin = nextInfo.MinCompleted;
+        var progress = nextMin > currentMin
+            ? Math.Min(100,
+                (decimal)(stats.TasksCompleted - currentMin)
+                / (nextMin - currentMin) * 100)
+            : 100;
+
+        // Earnings range (privacy-friendly: show range not exact)
+        var earningsRange = stats.TotalEarningsUSD switch
+        {
+            < 100 => "$0 – $100",
+            < 500 => "$100 – $500",
+            < 1000 => "$500 – $1K",
+            < 5000 => "$1K – $5K",
+            < 10000 => "$5K – $10K",
+            < 50000 => "$10K – $50K",
+            _ => "$50K+"
+        };
+
+        return new FreelancerStatsResponse(
+            stats.TasksCompleted,
+            stats.TasksAwarded,
+            stats.SuccessRate,
+            stats.AvgDeliveryDays,
+            earningsRange,
+            stats.UniqueClientsCount,
+            stats.SkillsCount,
+            new SkillLevelInfo(
+                stats.SkillLevel.ToString(),
+                levelInfo.Label, levelInfo.LabelAr,
+                levelInfo.Emoji, levelInfo.Color,
+                (int)stats.SkillLevel,
+                nextMin,
+                Math.Round(progress, 1)
+            ),
+            badges.Select(b =>
+            {
+                var def = BadgeCalculator.Definitions[b.Type];
+                return new BadgeInfo(
+                    b.Type.ToString(),
+                    def.Label, def.LabelAr,
+                    def.Emoji, def.Description, def.DescriptionAr,
+                    b.EarnedAt);
+            })
+        );
     }
 
     public async Task<BioPreviewResponse> PreviewBioAsync(
@@ -243,4 +339,16 @@ public class ProfileService
             p.UserId, p.Title, p.Bio, skills,
             p.Balance, p.IsPublished, items);
     }
+
+    //private static PortfolioItemResponse MapPortfolioItem(PortfolioItem i)
+    //{
+    //    return new PortfolioItemResponse(
+    //        i.ItemId,
+    //        i.ImageUrl,
+    //        i.Caption,
+    //        i.Status.ToString(),
+    //        i.AdminNotes,
+    //        i.UploadedAt
+    //    );
+    //}
 }

@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Waseet.Application.Features.Stats.Interfaces;
 using Task = System.Threading.Tasks.Task;
 using TaskStatus=Domain.Enums.TaskStatus;
 namespace Infrastructure.Services;
@@ -23,6 +24,7 @@ public class DeliveryService : IDeliveryService
     private readonly IAuditLogService _audit;
     private readonly ILogger<DeliveryService> _logger;
     private readonly IAiSanitizerService _sanitizer;
+    private readonly IStatsService _stats;
     public DeliveryService(
         WaseetDbContext db,
         IFileStorageService storage,
@@ -30,7 +32,8 @@ public class DeliveryService : IDeliveryService
         INotificationService notifications,
         IAuditLogService audit,
         ILogger<DeliveryService> logger,
-        IAiSanitizerService sanitizer
+        IAiSanitizerService sanitizer,
+        IStatsService stats
         )
     {
         _db = db;
@@ -40,6 +43,7 @@ public class DeliveryService : IDeliveryService
         _audit = audit;
         _logger = logger;
         _sanitizer = sanitizer;
+        _stats = stats;
     }
 
     public async Task<IEnumerable<DeliveryResponse>> GetDeliveryHistoryAsync(
@@ -584,11 +588,16 @@ public class DeliveryService : IDeliveryService
         dispute.ResolvedAt = DateTime.UtcNow;
         delivery.Task.UpdatedAt = DateTime.UtcNow;
 
-        // Optimistic concurrency — will throw DbUpdateConcurrencyException if another admin
+        // Optimistic concurrency - will throw DbUpdateConcurrencyException if another admin
         // resolved simultaneously
         try
         {
             await _db.SaveChangesAsync(ct);
+            _ = Task.Run(async () =>
+            {
+                await _stats.RecomputeFreelancerAsync(delivery.FreelancerUserId);
+                await _stats.RecomputeClientAsync(dispute.Task.ClientUserId);
+            }, ct);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -697,6 +706,14 @@ public class DeliveryService : IDeliveryService
         }
 
         await _db.SaveChangesAsync(ct);
+        // Recompute stats for both parties after every resolution
+        _ = Task.Run(async () =>
+        {
+            await _stats.RecomputeFreelancerAsync(delivery.FreelancerUserId);
+            await _stats.RecomputeClientAsync(delivery.Task.ClientUserId);
+        }, ct);
+
+
 
         // Audit
         await _audit.LogAsync("Delivery", delivery.DeliveryId,

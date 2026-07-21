@@ -14,6 +14,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Waseet.Application.Features.Stats.Interfaces;
+using Waseet.Infrastructure.Services;
 
 
 namespace Infrastructure;
@@ -69,6 +71,7 @@ public static class DependencyInjection
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IPaymentGatewayService, SimulatedPaymentGatewayService>();
         services.AddHostedService<AutoReleaseBackgroundService>();
+        services.AddScoped<IStatsService, StatsService>();
 
         // Payment abstraction — swap SimulatedPaymentGatewayService for a real
         // provider later by changing only this one registration.

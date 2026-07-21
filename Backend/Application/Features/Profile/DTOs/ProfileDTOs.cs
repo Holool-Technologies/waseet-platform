@@ -23,3 +23,47 @@ public record AdminPortfolioItem(
     Guid ItemId, Guid ProfileId, Guid UserId,
     string ImageUrl, string Caption,
     bool HumanDetected, DateTime UploadedAt);
+
+
+public record SkillLevelInfo(
+    string Key,
+    string Label,
+    string LabelAr,
+    string Emoji,
+    string Color,
+    int Level,
+    int NextLevelAt,
+    decimal Progress
+);
+
+public record BadgeInfo(
+    string Type,
+    string Label,
+    string LabelAr,
+    string Emoji,
+    string Description,
+    string DescriptionAr,
+    DateTime EarnedAt
+);
+
+public record FreelancerStatsResponse(
+    int TasksCompleted,
+    int TasksAwarded,
+    decimal SuccessRate,
+    decimal AvgDeliveryDays,
+    string EarningsRange,
+    int UniqueClientsCount,
+    int SkillsCount,
+    SkillLevelInfo SkillLevel,
+    IEnumerable<BadgeInfo> Badges
+);
+
+public record PublicProfileResponse(
+    Guid UserId,
+    string Title,
+    string Bio,
+    string[] Skills,
+    bool IsPublished,
+    FreelancerStatsResponse Stats,
+    IEnumerable<PortfolioItemResponse> Portfolio
+);
