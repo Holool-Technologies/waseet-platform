@@ -35,6 +35,8 @@ export interface Proposal {
   statusLabel: string;
   wasRewritten:boolean;            // NEW
   submittedAt: string;
+  freelancerSkillEmoji?: string;          // REQ 2
+  freelancerSkillLabel?: string;          // REQ 2
 }
 
 export interface CreateProposalRequest {

@@ -340,15 +340,15 @@ public class ProfileService
             p.Balance, p.IsPublished, items);
     }
 
-    //private static PortfolioItemResponse MapPortfolioItem(PortfolioItem i)
-    //{
-    //    return new PortfolioItemResponse(
-    //        i.ItemId,
-    //        i.ImageUrl,
-    //        i.Caption,
-    //        i.Status.ToString(),
-    //        i.AdminNotes,
-    //        i.UploadedAt
-    //    );
-    //}
+    private static PortfolioItemResponse MapPortfolioItem(PortfolioItem i)
+    {
+        return new PortfolioItemResponse(
+            i.ItemId,
+            i.ImageUrl,
+            i.Caption,
+            i.Status.ToString(),
+            i.AdminNotes,
+            i.UploadedAt
+        );
+    }
 }
